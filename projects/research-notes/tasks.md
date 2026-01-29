@@ -11,13 +11,13 @@
 
 ## High Priority
 
-- [ ] Research data modeling approaches (Star vs Data Vault vs alternatives)
-  **Priority:** HIGH | **Added:** 2026-01-29
-
 - [ ] Map Shopify Orders data model (API entities and fields)
   **Priority:** HIGH | **Added:** 2026-01-29
 
 - [ ] Define Orders fact table structure for generic Shopify DWH
+  **Priority:** HIGH | **Added:** 2026-01-29
+
+- [ ] Define dimension tables for Orders domain (Customer, Product, Date, etc.)
   **Priority:** HIGH | **Added:** 2026-01-29
 
 ---
@@ -66,3 +66,7 @@
 
 - [x] Establish scope boundaries and phased approach
   **Priority:** HIGH | **Added:** 2026-01-29 | **Completed:** 2026-01-29
+
+- [x] Research data modeling approaches (Star vs Data Vault vs alternatives)
+  **Priority:** HIGH | **Added:** 2026-01-29 | **Completed:** 2026-01-29
+  **Decision:** Star schema - best fit for Exasol, Shopify, productizable

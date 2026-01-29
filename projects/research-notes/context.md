@@ -70,11 +70,29 @@ Gamatek (Fulfillment)
 |----------|--------|
 | Target Platform | Exasol (columnar) |
 | Source | Shopify Admin API |
-| Schema Type | Star schema (to be validated vs alternatives) |
+| Schema Type | Star schema |
 | History | Configurable import window (parameter-driven) |
 
+### Decision Log
+
+**2026-01-29: Star Schema Selected**
+
+Evaluated: Star, Data Vault, Snowflake, OBT, Activity Schema
+
+Star schema chosen because:
+- Exasol optimized for this pattern (columnar + wide fact scans)
+- Shopify maps naturally (Orders fact + dimensions)
+- Productizable (BI tools expect it, customers understand it)
+- Appropriate complexity for single-source DWH
+- Solo developer friendly
+
+Rejected alternatives:
+- Data Vault: Over-engineered for single source, high build complexity
+- Snowflake: No advantage over star, more joins
+- OBT: Doesn't scale with scope
+- Activity: Wrong paradigm for Shopify's data structure
+
 ### To Research
-- Star schema vs Data Vault vs other modeling approaches
 - ETL/pipeline tooling options
 - Competitive landscape (existing Shopify DWH products)
 
