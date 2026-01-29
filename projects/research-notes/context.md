@@ -140,15 +140,43 @@ Reasoning:
 
 All to be included in holistic design, worked sequentially:
 
-| Domain | Priority | Description |
-|--------|----------|-------------|
-| **Orders** | 1st | Core transactions, redemptions |
-| **Finance** | 1st | Revenue, discounts, transaction values |
-| Products | Later | Mobile accessories catalog |
-| Inventory | Later | Stock levels, availability |
-| Customers | Later | End consumers |
-| Vouchers/Discounts | Later | Codes, values, usage |
-| Fulfillment | Later | Gamatek handoff, shipping |
+| Domain | Priority | Status | Description |
+|--------|----------|--------|-------------|
+| **Orders** | 1st | ✓ Schema defined | Core transactions, redemptions |
+| **Finance** | 1st | ✓ Measures defined | Revenue, discounts, transaction values |
+| **Products** | Later | ✓ Dimension defined | Mobile accessories catalog |
+| **Customers** | Later | ◐ Dimension drafted | End consumers |
+| **Inventory** | Later | ○ Pending | Stock levels, availability |
+| **Vouchers/Discounts** | Later | ◐ Dimension drafted | Codes, values, usage |
+| **Fulfillment** | Later | ○ Pending | Gamatek handoff, shipping |
+
+**Legend:** ✓ Complete | ◐ Partial | ○ Pending
+
+### What's Built
+
+**Fact Tables:**
+- `fact_order_line_item` (line-item grain)
+- `fact_order_header` (order grain)
+
+**Dimensions:**
+- `dim_date` - Conformed date dimension
+- `dim_customer` - End consumers
+- `dim_product` - Products at variant level
+- `dim_geography` - Shipping/billing locations
+- `dim_order` - Order attributes
+- `dim_discount` - Discount codes
+
+**Finance Measures:**
+- Revenue (Gross, Net, Total, Refund)
+- Discount metrics (Rate %, Penetration)
+- Profitability (COGS, Margin)
+- Averages (AOV, Units per Order)
+- Volume metrics
+
+### Still To Define
+- Inventory domain (includes cost from InventoryItem API)
+- Fulfillment domain (Gamatek integration)
+- Voucher complexity (Layer 2 / DYT-specific)
 
 ### Finance Approach
 - Transaction value "as if cash"
