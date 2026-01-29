@@ -273,9 +273,110 @@ Each dimension should have a default row for handling nulls:
 
 ---
 
+## Finance Measures & KPIs
+
+Standard calculated measures for the generic Shopify DWH.
+
+### Revenue Metrics
+
+| Measure | Calculation | Grain |
+|---------|-------------|-------|
+| Gross Revenue | SUM(line_subtotal) | Line/Order |
+| Discount Amount | SUM(line_discount_amount) or SUM(total_discount) | Line/Order |
+| Net Revenue | Gross Revenue - Discount Amount | Line/Order |
+| Tax Amount | SUM(line_tax_amount) or SUM(total_tax) | Line/Order |
+| Shipping Revenue | SUM(shipping_amount) | Order |
+| Total Revenue | Net Revenue + Tax Amount + Shipping | Order |
+| Refund Amount | SUM(total_refunded) | Order |
+| Net Payment | SUM(net_payment) | Order |
+
+### Discount Metrics
+
+| Measure | Calculation | Notes |
+|---------|-------------|-------|
+| Discount Rate % | (Discount Amount / Gross Revenue) * 100 | Percentage of gross discounted |
+| Orders with Discount | COUNT where total_discount > 0 | Count |
+| Orders without Discount | COUNT where total_discount = 0 | Count |
+| Discount Penetration % | (Orders with Discount / Total Orders) * 100 | % of orders using discount |
+
+### Profitability Metrics
+
+| Measure | Calculation | Notes |
+|---------|-------------|-------|
+| COGS | SUM(quantity * product.cost) | Requires cost in dim_product |
+| Gross Profit | Net Revenue - COGS | Margin in currency |
+| Gross Margin % | (Gross Profit / Net Revenue) * 100 | Margin as percentage |
+
+**Note:** Profitability requires cost data in dim_product. If unavailable, these metrics will be null.
+
+### Average Metrics
+
+| Measure | Calculation | Notes |
+|---------|-------------|-------|
+| Average Order Value (AOV) | Net Revenue / COUNT(DISTINCT order_id) | Revenue per order |
+| Average Items per Order | SUM(quantity) / COUNT(DISTINCT order_id) | Units per order |
+| Average Line Value | Net Revenue / COUNT(line_item_id) | Revenue per line item |
+| Average Discount per Order | Discount Amount / COUNT(DISTINCT order_id) | Discount per order |
+| Average Unit Price | Net Revenue / SUM(quantity) | Revenue per unit |
+
+### Refund Metrics
+
+| Measure | Calculation | Notes |
+|---------|-------------|-------|
+| Refund Amount | SUM(total_refunded) | Total refunded |
+| Orders Refunded | COUNT where total_refunded > 0 | Count |
+| Refund Rate % | (Orders Refunded / Total Orders) * 100 | % of orders refunded |
+| Refund Value Rate % | (Refund Amount / Total Revenue) * 100 | % of revenue refunded |
+
+### Volume Metrics
+
+| Measure | Calculation | Notes |
+|---------|-------------|-------|
+| Order Count | COUNT(DISTINCT order_id) | Number of orders |
+| Line Item Count | COUNT(line_item_id) | Number of line items |
+| Units Sold | SUM(quantity) | Total units |
+| Unique Customers | COUNT(DISTINCT customer_key) | Customer count |
+| Unique Products | COUNT(DISTINCT product_key) | Product count |
+
+---
+
+## Trend & Period Analysis
+
+For time-based comparisons, typical patterns:
+
+### Period Comparisons
+
+| Comparison | Description |
+|------------|-------------|
+| vs Prior Period | Current period vs immediately prior (e.g., this week vs last week) |
+| vs Same Period Last Year | Year-over-year comparison |
+| vs Rolling Average | Current vs N-period rolling average |
+
+### Growth Metrics
+
+| Measure | Calculation |
+|---------|-------------|
+| Period Growth | (Current - Prior) / Prior * 100 |
+| YoY Growth | (Current - Same Period LY) / Same Period LY * 100 |
+
+### Trend Patterns
+
+| Pattern | Implementation |
+|---------|----------------|
+| Daily trend | Aggregate by date_key |
+| Weekly trend | Aggregate by week_of_year, year |
+| Monthly trend | Aggregate by month, year |
+| Quarterly trend | Aggregate by quarter, year |
+| YTD cumulative | Running sum within year |
+| MTD cumulative | Running sum within month |
+
+**Note:** Trend calculations typically done in BI layer or via window functions in views.
+
+---
+
 ## Open Items
 
 - [ ] Confirm Exasol-specific data types
 - [ ] Define indexes/distribution keys for Exasol
-- [ ] Add Finance-specific measures if needed
 - [ ] Consider dim_time for time-of-day analysis
+- [ ] Define view layer for calculated measures

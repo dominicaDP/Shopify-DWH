@@ -14,9 +14,6 @@
 - [ ] Review and refine schema.md for Exasol-specific considerations
   **Priority:** HIGH | **Added:** 2026-01-29
 
-- [ ] Define Finance-specific measures and calculations
-  **Priority:** HIGH | **Added:** 2026-01-29
-
 ---
 
 ## Normal
@@ -79,3 +76,7 @@
 - [x] Research competitive landscape (Shopify DWH/analytics products)
   **Priority:** NORMAL | **Added:** 2026-01-29 | **Completed:** 2026-01-29
   **Finding:** Gap exists for Exasol-native, B2B2C-capable, mid-market priced solution
+
+- [x] Define Finance-specific measures and calculations
+  **Priority:** HIGH | **Added:** 2026-01-29 | **Completed:** 2026-01-29
+  **Defined:** Revenue, Discount, Profitability, Averages, Refunds, Volume, Trends
