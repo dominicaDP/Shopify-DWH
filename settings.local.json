@@ -1,0 +1,62 @@
+{
+  "$schema": "https://cdn.jsdelivr.net/gh/anthropics/claude-code@main/schema/settings.schema.json",
+  "version": "1.0.0",
+  "description": "Second Brain - Safety-first permissions",
+
+  "hooks": {
+    "userPromptSubmit": ".claude/hooks/user-prompt-submit.sh"
+  },
+
+  "permissions": {
+    "description": "Customize 'allow' section for your tech stack",
+    "allow": [
+      "Read",
+      "Write",
+      "Edit",
+      "Grep",
+      "Glob",
+      "Bash(git *:*)",
+      "Bash(ls:*)",
+      "Bash(pwd:*)",
+      "Bash(echo:*)",
+      "Bash(cat:*)",
+      "Bash(mkdir:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(rm -r *:*)",
+      "Bash(mv * /dev/null:*)",
+      "Bash(dd:*)",
+      "Bash(mkfs:*)",
+      "Bash(sudo:*)",
+      "Bash(su:*)",
+      "Bash(curl:*)",
+      "Bash(wget:*)",
+      "Bash(nc:*)",
+      "Bash(netcat:*)",
+      "Bash(>/etc/*:*)",
+      "Bash(*; rm:*)",
+      "Bash(*&& rm:*)",
+      "Bash(chmod 777:*)",
+      "WebFetch(*)"
+    ]
+  },
+
+  "paths": {
+    "ignore": [
+      "node_modules/**",
+      ".git/**",
+      "dist/**",
+      "build/**",
+      ".next/**",
+      "__pycache__/**",
+      "*.pyc",
+      ".DS_Store",
+      ".env",
+      ".env.*",
+      "*.log"
+    ]
+  }
+}

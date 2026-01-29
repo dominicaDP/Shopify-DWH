@@ -1,0 +1,94 @@
+# Episodic Memory Index
+
+**Purpose:** Records of completed work, decisions, and experiences.
+
+---
+
+## Structure
+
+```
+memory/episodic/
+├── completed-work/          # Work records from /learn
+│   └── YYYY-MM-DD-description.md
+├── decisions/               # Major decisions made
+│   └── YYYY-MM-DD-decision.md
+└── INDEX.md                 # This file
+```
+
+---
+
+## Recent Episodes
+
+| Date | Type | Description | Project |
+|------|------|-------------|---------|
+| | | | |
+
+---
+
+## Episode Format
+
+### completed-work/YYYY-MM-DD-description.md
+
+```markdown
+# [Description]
+
+**Date:** YYYY-MM-DD
+**Project:** [project-name]
+**Type:** [feature / bugfix / refactor / research]
+
+## What was completed
+[Summary of work done]
+
+## Key decisions
+- [Decision 1 and reasoning]
+
+## Patterns identified
+- [Pattern and confidence level]
+
+## Issues encountered
+- [Issue and resolution]
+
+## Time spent
+[Actual time vs estimate]
+
+## Links
+- [PR or commit link]
+- [Related documentation]
+```
+
+---
+
+## Using Episodic Memory
+
+### Recording (via /learn)
+After completing significant work, run `/learn` to:
+1. Capture what was done
+2. Extract patterns
+3. Document decisions
+4. Create episodic record
+
+### Recalling
+Use `/recall [topic]` to search episodic memory for:
+- Past solutions to similar problems
+- Decisions and their outcomes
+- Patterns discovered
+
+### Context Restoration
+Reference episodic memories to restore context in new conversations:
+```
+@memory/episodic/completed-work/YYYY-MM-DD-feature.md
+```
+
+---
+
+## Maintenance
+
+### Weekly
+- Review recent episodes
+- Link patterns to semantic memory
+- Archive old, irrelevant episodes
+
+### Monthly
+- Clean up duplicate information
+- Update pattern confidence based on reuse
+- Archive completed project episodes
