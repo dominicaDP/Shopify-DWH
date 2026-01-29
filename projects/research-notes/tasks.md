@@ -21,9 +21,6 @@
 
 ## Normal
 
-- [ ] Research competitive landscape (existing Shopify DWH/analytics products)
-  **Priority:** NORMAL | **Added:** 2026-01-29
-
 - [ ] Document Shopify discount/voucher data structures
   **Priority:** NORMAL | **Added:** 2026-01-29
 
@@ -78,3 +75,7 @@
 - [x] Define dimension tables for Orders domain
   **Priority:** HIGH | **Added:** 2026-01-29 | **Completed:** 2026-01-29
   **Dimensions:** dim_date, dim_customer, dim_product, dim_geography, dim_order, dim_discount
+
+- [x] Research competitive landscape (Shopify DWH/analytics products)
+  **Priority:** NORMAL | **Added:** 2026-01-29 | **Completed:** 2026-01-29
+  **Finding:** Gap exists for Exasol-native, B2B2C-capable, mid-market priced solution
