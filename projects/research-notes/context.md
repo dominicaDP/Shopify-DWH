@@ -1,4 +1,4 @@
-# Shopify DWH Research
+# Shopify DWH
 
 **Project Type:** Work
 **Status:** Active
@@ -9,7 +9,7 @@
 
 ## Overview
 
-Knowledge base and research project for building the Shopify Data Warehouse for Dress Your Tech. Captures analytics patterns, Shopify data structures, voucher/redemption tracking approaches, and B2B2C metrics.
+Build a generic, productizable Shopify Data Warehouse with a custom layer for Dress Your Tech specifics. Transform Shopify's row-based transactional data into a columnar DWH optimized for analytics and reporting.
 
 ---
 
@@ -17,7 +17,7 @@ Knowledge base and research project for building the Shopify Data Warehouse for 
 
 ### Company Structure
 - **Digital Planet** - Ecommerce enabler (tech and sales side)
-- **Dress Your Tech** - Mobile products & accessories website (Shopify)
+- **Dress Your Tech (DYT)** - Mobile products & accessories website (Shopify)
 - **Gamatek** - Product supplier and fulfillment partner
 
 ### Business Model (B2B2C)
@@ -31,91 +31,147 @@ Dress Your Tech (Shopify)
 Gamatek (Fulfillment)
 ```
 
-### Key Insight
-- NOT traditional ecommerce - primary revenue is voucher-based
-- Need to track voucher issuance, redemption, and fulfillment
-- Metrics differ from standard ecommerce (AOV, conversion less relevant)
+### Voucher System
+- Vouchers created within Shopify (discount codes)
+- Format: 15-16 digit alphanumeric (standard Shopify)
+- Types: Rand value-based (fixed amount) and percentage-based
+- Distribution mechanism: External, out of scope
+- Corporate client attribution: Lives outside Shopify, out of scope for base layer
 
 ---
 
-## Tech Stack
+## Project Vision
 
-### Core
-- **Platform:** Windows
-- **Ecommerce:** Shopify
-- **Data Warehouse:** (To be determined)
+### Two-Layer Architecture
 
-### Potential Tools
-- Shopify APIs / GraphQL
-- ETL tools (TBD)
-- Analytics/BI platform (TBD)
+**Layer 1: Generic Shopify DWH (Productizable)**
+- Works for any Shopify store
+- Maps cleanly to Shopify's native data model
+- Standard ecommerce dimensions and facts
+- Resellable to other Shopify merchants
 
----
+**Layer 2: Custom Business Logic (DYT-specific)**
+- Voucher complexity
+- B2B2C attribution
+- Gamatek integration
+- Built on top of Layer 1
 
-## Architecture
-
-### Data Flow (Conceptual)
-```
-Shopify Store Data
-    ↓ Extract
-Staging Layer
-    ↓ Transform
-Data Warehouse
-    ↓ Serve
-Analytics / Reporting
-```
-
-### Key Data Entities
-1. **Orders** - Voucher redemptions
-2. **Products** - Mobile accessories catalog
-3. **Customers** - End consumers (from corporate clients)
-4. **Vouchers** - Tracking codes/discounts (primary business driver)
+### Commercial Potential
+- Target: Shopify merchants needing analytics beyond built-in reports
+- Deployment model: TBD (self-hosted vs SaaS)
+- Design thoroughly to support future customer conversations
 
 ---
 
-## Current Focus
+## Technical Decisions
 
-### Active Work
-- Setting up knowledge management system
-- Understanding Shopify data model
-- Researching DWH approaches for Shopify
+### Confirmed
+| Decision | Detail |
+|----------|--------|
+| Target Platform | Exasol (columnar) |
+| Source | Shopify Admin API |
+| Schema Type | Star schema (to be validated vs alternatives) |
+| History | Configurable import window (parameter-driven) |
 
-### Next Up
-- Map Shopify data entities
-- Define key metrics for B2B2C model
-- Evaluate ETL/data pipeline options
+### To Research
+- Star schema vs Data Vault vs other modeling approaches
+- ETL/pipeline tooling options
+- Competitive landscape (existing Shopify DWH products)
 
-### Blocked
-- None
-
----
-
-## Key Questions to Answer
-
-1. How to track voucher lifecycle (issued → redeemed → fulfilled)?
-2. What Shopify data is available via APIs?
-3. How to attribute redemptions back to corporate clients?
-4. What metrics matter for a voucher-based business vs traditional ecommerce?
+### Design Principles
+- Scale-agnostic (current: 2-4k orders/month, design for 100x)
+- Generic base, custom extensions
+- Configurable historical depth
+- "As if cash" transaction recording
 
 ---
 
-## Team / Stakeholders
+## Scope
+
+### Phase 1: Foundation
+- Spec and define data structures by business function
+- Starting domains: **Orders** and **Finance**
+- Research data modeling approaches
+
+### Later Phases
+- Reporting definitions
+- Additional domains (Products, Inventory, Customers, Fulfillment)
+- DYT-specific customization layer
+- Market/competitive analysis
+
+### Current Scope Boundaries
+| In Scope | Out of Scope (for now) |
+|----------|------------------------|
+| Shopify data extraction | Voucher distribution mechanism |
+| Orders, Finance domains | Corporate client attribution |
+| Generic DWH design | Reporting layer |
+| Data modeling research | ETL implementation |
+
+---
+
+## Business Domains
+
+All to be included in holistic design, worked sequentially:
+
+| Domain | Priority | Description |
+|--------|----------|-------------|
+| **Orders** | 1st | Core transactions, redemptions |
+| **Finance** | 1st | Revenue, discounts, transaction values |
+| Products | Later | Mobile accessories catalog |
+| Inventory | Later | Stock levels, availability |
+| Customers | Later | End consumers |
+| Vouchers/Discounts | Later | Codes, values, usage |
+| Fulfillment | Later | Gamatek handoff, shipping |
+
+### Finance Approach
+- Transaction value "as if cash"
+- Cleanly capture: Gross → Discounts (voucher + %) → Net
+- Base level correct before tackling voucher complexity
+
+---
+
+## Volume & Scale
+
+| Metric | Current | Design For |
+|--------|---------|------------|
+| Orders/month | 2-4k | Scale-agnostic |
+| Store history | ~5 years | Configurable |
+| Products (SKUs) | TBD | - |
+
+---
+
+## Team
 
 | Role | Name | Notes |
 |------|------|-------|
-| Head of Analytics | Dominic | Owner |
-| Product Supplier | Gamatek | Fulfillment partner |
+| Head of Analytics | Dominic | Owner, technically strong |
+| Fulfillment Partner | Gamatek | - |
+
+**Timeline:** No hard deadline - "do it right" pace
+
+---
+
+## Working Style
+
+- Methodical, collaborative approach
+- Step-by-step, not big-bang
+- Slow and steady - no mass content generation
+- Technical depth OK (Dominic is analytically comfortable)
+- Strategy guidance needed for commercial/business side
+
+---
+
+## Infrastructure
+
+| Component | Status |
+|-----------|--------|
+| Shopify Admin access | Available |
+| API credentials | Can create |
+| Exasol instance | Available |
 
 ---
 
 ## Links & Resources
 
-- **Second Brain Documentation:** See CLAUDE.md in root
-- **Shopify Admin:** (add URL)
 - **Shopify API Docs:** https://shopify.dev/docs/api
-
----
-
-## Notes
-
-This project focuses on building analytics infrastructure for a non-traditional ecommerce model. Standard ecommerce DWH patterns may need adaptation for the voucher-based B2B2C flow.
+- **Shopify Admin API:** https://shopify.dev/docs/api/admin

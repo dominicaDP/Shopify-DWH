@@ -1,57 +1,53 @@
 # Tasks
 
-**Project:** Shopify DWH Research
+**Project:** Shopify DWH
 **Last Updated:** 2026-01-29
 
 ---
 
 ## Urgent (Due Today)
 
-<!-- Format:
-- [ ] Task description
-  **Priority:** URGENT | **Added:** YYYY-MM-DD | **Est:** Xh | **Due:** YYYY-MM-DD
--->
-
 ---
 
 ## High Priority
 
-- [ ] Map Shopify data entities relevant to Dress Your Tech
-  **Priority:** HIGH | **Added:** 2026-01-29 | **Est:** 2h
+- [ ] Research data modeling approaches (Star vs Data Vault vs alternatives)
+  **Priority:** HIGH | **Added:** 2026-01-29
 
-- [ ] Document voucher lifecycle (issued → redeemed → fulfilled)
-  **Priority:** HIGH | **Added:** 2026-01-29 | **Est:** 1h
+- [ ] Map Shopify Orders data model (API entities and fields)
+  **Priority:** HIGH | **Added:** 2026-01-29
 
-- [ ] Research Shopify API capabilities for data extraction
-  **Priority:** HIGH | **Added:** 2026-01-29 | **Est:** 2h
+- [ ] Define Orders fact table structure for generic Shopify DWH
+  **Priority:** HIGH | **Added:** 2026-01-29
 
 ---
 
 ## Normal
 
-- [ ] Define key metrics for B2B2C voucher business model
-  **Priority:** NORMAL | **Added:** 2026-01-29 | **Est:** 1h
+- [ ] Research competitive landscape (existing Shopify DWH/analytics products)
+  **Priority:** NORMAL | **Added:** 2026-01-29
 
-- [ ] Evaluate ETL/data pipeline options for Shopify
-  **Priority:** NORMAL | **Added:** 2026-01-29 | **Est:** 2h
+- [ ] Document Shopify discount/voucher data structures
+  **Priority:** NORMAL | **Added:** 2026-01-29
 
-- [ ] Explore /learn command for pattern extraction
-  **Priority:** NORMAL | **Added:** 2026-01-29 | **Est:** 30m
+- [ ] Evaluate ETL/pipeline tooling options for Shopify → Exasol
+  **Priority:** NORMAL | **Added:** 2026-01-29
 
 ---
 
 ## Backlog
 
-- [ ] Design DWH schema for voucher-based ecommerce
-- [ ] Research attribution methods for corporate client tracking
-- [ ] Evaluate BI/reporting tool options
-- [ ] Set up weekly review ritual
+- [ ] Design Finance dimension/fact structures
+- [ ] Define Products domain data model
+- [ ] Define Customers domain data model
+- [ ] Define Inventory domain data model
+- [ ] Define Fulfillment domain data model
+- [ ] Design DYT-specific customization layer
+- [ ] Market opportunity analysis
 
 ---
 
 ## Blocked
-
-<!-- Tasks waiting on something -->
 
 ---
 
@@ -59,31 +55,14 @@
 
 ### Week of 2026-01-27
 
-- [x] Set up Second Brain system
+- [x] Set up Second Brain knowledge management system
   **Priority:** HIGH | **Added:** 2026-01-29 | **Completed:** 2026-01-29
 
----
+- [x] Document business context (Digital Planet, DYT, Gamatek, B2B2C model)
+  **Priority:** HIGH | **Added:** 2026-01-29 | **Completed:** 2026-01-29
 
-## Task Guidelines
+- [x] Define project vision and two-layer architecture
+  **Priority:** HIGH | **Added:** 2026-01-29 | **Completed:** 2026-01-29
 
-### Priority Levels
-- **URGENT** - Due today, blocking others
-- **HIGH** - Important, do this week
-- **NORMAL** - Standard priority
-- **BACKLOG** - Future consideration
-
-### Task Format
-```markdown
-- [ ] Clear, actionable task description
-  **Priority:** [level] | **Added:** YYYY-MM-DD | **Est:** Xh
-```
-
-### When to Add Due Dates
-- External deadlines
-- Blocking other work
-- Time-sensitive items
-
-### Moving to Completed
-1. Mark with [x]
-2. Add **Completed:** date
-3. Group by week for history
+- [x] Establish scope boundaries and phased approach
+  **Priority:** HIGH | **Added:** 2026-01-29 | **Completed:** 2026-01-29

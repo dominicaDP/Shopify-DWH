@@ -6,7 +6,7 @@
 
 | Project | Type | Status | Priority | Health |
 |---------|------|--------|----------|--------|
-| research-notes | Personal | Active | HIGH | Healthy |
+| research-notes | Work | Active | HIGH | Healthy |
 
 ## Project Health Legend
 
@@ -32,12 +32,14 @@
 - [Notes](./research-notes/notes.md)
 
 **Current Focus:**
-- Understanding Shopify data model for Dress Your Tech
-- Researching DWH approaches for B2B2C voucher business
+- Research data modeling approaches (Star vs Data Vault)
+- Map Shopify Orders data model
+- Define generic DWH structure
 
 **Recent Activity:**
-- Initial project setup (2026-01-29)
-- Added business context (Digital Planet / Gamatek / Dress Your Tech)
+- Consolidated project context and vision (2026-01-29)
+- Defined two-layer architecture (generic + custom)
+- Established scope: Orders & Finance first
 
 ---
 
