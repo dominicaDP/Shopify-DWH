@@ -1,100 +1,108 @@
 # Architecture Decisions
 
-**Last Updated:** [date]
+**Last Updated:** 2026-01-29
 
 ---
 
 ## Tech Stack Overview
 
-### Languages & Runtimes
-| Category | Technology | Version | Notes |
-|----------|------------|---------|-------|
-| Primary Language | [e.g., Python] | [e.g., 3.11] | |
-| Secondary | [e.g., TypeScript] | [e.g., 5.x] | |
+### Shopify DWH Project
 
-### Frameworks
-| Category | Technology | Version | Notes |
-|----------|------------|---------|-------|
-| Backend | [e.g., FastAPI] | | |
-| Frontend | [e.g., React] | | |
-| Testing | [e.g., pytest] | | |
-
-### Data Stores
-| Category | Technology | Version | Notes |
-|----------|------------|---------|-------|
-| Primary DB | [e.g., PostgreSQL] | [e.g., 15] | |
-| Cache | [e.g., Redis] | | |
-
-### Infrastructure
 | Category | Technology | Notes |
 |----------|------------|-------|
-| Hosting | [e.g., AWS] | |
-| CI/CD | [e.g., GitHub Actions] | |
-| Monitoring | [e.g., Datadog] | |
+| Source | Shopify Admin API | Use GraphQL (REST deprecated) |
+| Target DWH | Exasol | Columnar database |
+| Schema | Star schema | See ADR-001 |
+| ETL | TBD | Evaluating Airbyte vs custom |
 
 ---
 
 ## Architecture Decision Records (ADRs)
 
-### ADR-001: [Title]
+### ADR-001: Star Schema for DWH Modeling
 
-**Date:** [date]
-**Status:** [Proposed / Accepted / Deprecated / Superseded]
-**Deciders:** [who was involved]
+**Date:** 2026-01-29
+**Status:** Accepted
+**Deciders:** Dominic
 
 **Context:**
-[What is the issue that we're seeing that is motivating this decision?]
+Need to choose data modeling approach for Shopify DWH. Must be productizable (generic for any Shopify store) and optimized for Exasol.
 
 **Decision:**
-[What is the change that we're proposing and/or doing?]
+Use star schema with line-item grain fact tables.
 
 **Consequences:**
-- **Positive:** [benefits]
-- **Negative:** [trade-offs]
-- **Neutral:** [other effects]
+- **Positive:** Exasol optimized for star schema, BI tools expect it, customers understand it, solo-developer friendly
+- **Negative:** Less flexible for schema evolution than Data Vault
+- **Neutral:** Appropriate complexity for single-source DWH
 
 **Alternatives Considered:**
-1. [Alternative 1] - [why rejected]
-2. [Alternative 2] - [why rejected]
+1. Data Vault - Rejected: Over-engineered for single source, high build complexity
+2. Snowflake schema - Rejected: No advantage over star, more joins
+3. One Big Table (OBT) - Rejected: Doesn't scale with scope
+4. Activity Schema - Rejected: Wrong paradigm for Shopify's data structure
 
 ---
 
-## Standards & Conventions
+### ADR-002: GraphQL API for Data Extraction
 
-### Code Style
-- [Linting tool and config]
-- [Formatting rules]
-- [Naming conventions]
+**Date:** 2026-01-29
+**Status:** Accepted
+**Deciders:** Dominic
 
-### Git Workflow
-- [Branch naming]
-- [Commit message format]
-- [PR process]
+**Context:**
+Shopify offers both REST and GraphQL Admin APIs. REST is being deprecated.
 
-### Testing Standards
-- [Coverage requirements]
-- [Test naming conventions]
-- [When to write tests]
+**Decision:**
+Build ETL against GraphQL Admin API from the start.
+
+**Consequences:**
+- **Positive:** Future-proof, REST deprecated Oct 2024, required for new apps April 2025
+- **Negative:** Slightly more complex query structure than REST
+- **Neutral:** Better rate limiting model (cost-based vs call-based)
+
+**Alternatives Considered:**
+1. REST API - Rejected: Being deprecated, would require migration later
 
 ---
 
-## Cross-Cutting Concerns
+### ADR-003: Variant-Level Product Dimension
 
-### Error Handling
-[How errors are handled across the system]
+**Date:** 2026-01-29
+**Status:** Accepted
+**Deciders:** Dominic
 
-### Logging
-[Logging standards and tools]
+**Context:**
+Shopify products have nested variants. Need to decide dimension grain.
 
-### Security
-[Security practices and tools]
+**Decision:**
+dim_product at variant level (one row per variant, not per product).
 
-### Performance
-[Performance standards and monitoring]
+**Consequences:**
+- **Positive:** Enables variant-level analysis, includes option1/2/3 attributes
+- **Negative:** More rows than product-level grain
+- **Neutral:** Standard approach for retail DWH
+
+**Key Fields Added:**
+- option1/2/3 for variant attributes (Size, Color, Material)
+- barcode for inventory/fulfillment matching
+
+---
+
+## Patterns Learned
+
+### Shopify API Patterns
+
+| Pattern | Confidence | Notes |
+|---------|------------|-------|
+| Cost from InventoryItem | MEDIUM | `Variant.inventory_item_id → InventoryItem.cost` |
+| REST deprecation | HIGH | Build on GraphQL, REST legacy Oct 2024 |
 
 ---
 
 ## Evolution Notes
 
-### [Date] - [Change]
-[What changed and why]
+### 2026-01-29 - Initial Setup
+- Established star schema approach
+- Defined Orders domain (2 facts, 6 dimensions)
+- Researched Product API, updated dim_product with variant attributes

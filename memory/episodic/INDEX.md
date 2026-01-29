@@ -21,7 +21,7 @@ memory/episodic/
 
 | Date | Type | Description | Project |
 |------|------|-------------|---------|
-| | | | |
+| 2026-01-29 | research | Product API research & schema update | Shopify DWH |
 
 ---
 

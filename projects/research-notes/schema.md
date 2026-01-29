@@ -168,6 +168,10 @@ Star schema design for generic Shopify DWH.
 | `sku` | VARCHAR(100) | YES | SKU |
 | `title` | VARCHAR(500) | NO | Product title |
 | `variant_title` | VARCHAR(500) | YES | Variant title |
+| `option1` | VARCHAR(255) | YES | First variant option (e.g., Size) |
+| `option2` | VARCHAR(255) | YES | Second variant option (e.g., Color) |
+| `option3` | VARCHAR(255) | YES | Third variant option (e.g., Material) |
+| `barcode` | VARCHAR(100) | YES | Product barcode (UPC, EAN, etc.) |
 | `product_type` | VARCHAR(255) | YES | Product type/category |
 | `vendor` | VARCHAR(255) | YES | Vendor/brand |
 | `price` | DECIMAL(18,2) | NO | Current price |

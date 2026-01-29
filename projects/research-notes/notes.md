@@ -125,17 +125,90 @@ Corporate Client → Issues Voucher → Consumer → Redeems on DYT → Order �
 
 ## Shopify Data Notes
 
-<!-- Capture Shopify-specific findings here -->
+### 2026-01-29 - Product API Research
+
+**Source:** Shopify REST Admin API - Product Resource
+
+#### Product Entity Structure
+
+| Field | Type | DWH Mapping |
+|-------|------|-------------|
+| `id` | integer (int64) | → product_id |
+| `title` | string | → title |
+| `handle` | string | *Consider adding* |
+| `body_html` | string | Out of scope |
+| `vendor` | string | → vendor |
+| `product_type` | string | → product_type |
+| `status` | string | → status (active/archived/draft) |
+| `created_at` | datetime | → created_at |
+| `updated_at` | datetime | *Consider adding* |
+| `published_at` | datetime | Out of scope |
+| `tags` | string (comma-sep) | → tags |
+
+#### Variant Entity Structure (nested under Product)
+
+| Field | Type | DWH Mapping |
+|-------|------|-------------|
+| `id` | integer | → variant_id |
+| `product_id` | integer | → product_id |
+| `title` | string | → variant_title |
+| `price` | string (numeric) | → price |
+| `sku` | string | → sku |
+| `option1/2/3` | string | *Consider adding* |
+| `taxable` | boolean | → taxable |
+| `requires_shipping` | boolean | → requires_shipping |
+| `weight` | decimal | → weight |
+| `weight_unit` | string | → weight_unit |
+| `compare_at_price` | string/null | → compare_at_price |
+| `barcode` | string | *Consider adding* |
+| `inventory_quantity` | integer | Separate inventory fact |
+| `grams` | integer | Redundant (use weight) |
+
+#### Cost Field Note
+
+**Important:** `cost` is NOT in the Product API.
+
+Cost comes from the **InventoryItem** resource:
+```
+Variant.inventory_item_id → InventoryItem.cost
+```
+
+Need separate API call to fetch cost data. Consider:
+- Joining during ETL
+- Separate dim_inventory_item
+- Nullable cost in dim_product (populated from InventoryItem)
+
+#### Schema Validation
+
+**Current dim_product coverage:** ✅ Good
+- All critical fields mapped
+- Grain correct (variant level)
+
+**Potential additions:**
+| Field | Priority | Status |
+|-------|----------|--------|
+| `handle` | LOW | Deferred - rarely needed for analytics |
+| `barcode` | MEDIUM | ✅ Added to schema |
+| `option1/2/3` | MEDIUM | ✅ Added to schema |
+| `updated_at` | LOW | Deferred - ETL metadata sufficient |
+
+#### API Migration Alert
+
+⚠️ **REST API Deprecation:**
+- REST Product API is **legacy** as of October 1, 2024
+- GraphQL Admin API **required** for new apps from April 1, 2025
+- Recommendation: Build ETL against GraphQL from the start
 
 ### Key Entities to Research
+- ~~Products (mobile accessories)~~ ✅ Done
 - Orders (redemptions)
-- Products (mobile accessories)
 - Customers (end consumers)
 - Discount Codes (vouchers)
+- InventoryItem (for cost data)
 - Metafields (custom data?)
 
 ### API Considerations
-- REST API vs GraphQL
+- ~~REST API vs GraphQL~~ → **Use GraphQL** (REST being deprecated)
 - Rate limits
 - Historical data access
 

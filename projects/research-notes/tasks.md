@@ -18,11 +18,16 @@
 
 ## Normal
 
+- [ ] Research InventoryItem API for cost data
+  **Priority:** NORMAL | **Added:** 2026-01-29
+  **Context:** Cost field comes from InventoryItem, not Product API
+
 - [ ] Document Shopify discount/voucher data structures
   **Priority:** NORMAL | **Added:** 2026-01-29
 
 - [ ] Evaluate ETL/pipeline tooling options for Shopify → Exasol
   **Priority:** NORMAL | **Added:** 2026-01-29
+  **Note:** Use GraphQL (REST deprecated Oct 2024)
 
 ---
 
@@ -80,3 +85,8 @@
 - [x] Define Finance-specific measures and calculations
   **Priority:** HIGH | **Added:** 2026-01-29 | **Completed:** 2026-01-29
   **Defined:** Revenue, Discount, Profitability, Averages, Refunds, Volume, Trends
+
+- [x] Research Shopify Product API and validate dim_product schema
+  **Priority:** HIGH | **Added:** 2026-01-29 | **Completed:** 2026-01-29
+  **Finding:** Added option1/2/3, barcode. Cost comes from InventoryItem API.
+  **Note:** REST API deprecated - use GraphQL for ETL
