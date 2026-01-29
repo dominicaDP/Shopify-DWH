@@ -92,6 +92,15 @@ Rejected alternatives:
 - OBT: Doesn't scale with scope
 - Activity: Wrong paradigm for Shopify's data structure
 
+**2026-01-29: Line Item Grain Selected**
+
+Fact table grain: One row per line item (not per order)
+
+Reasoning:
+- More flexible - can aggregate up to order level
+- Enables product-level analysis
+- Standard approach for retail/ecommerce DWH
+
 ### To Research
 - ETL/pipeline tooling options
 - Competitive landscape (existing Shopify DWH products)

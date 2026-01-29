@@ -11,13 +11,10 @@
 
 ## High Priority
 
-- [ ] Map Shopify Orders data model (API entities and fields)
+- [ ] Review and refine schema.md for Exasol-specific considerations
   **Priority:** HIGH | **Added:** 2026-01-29
 
-- [ ] Define Orders fact table structure for generic Shopify DWH
-  **Priority:** HIGH | **Added:** 2026-01-29
-
-- [ ] Define dimension tables for Orders domain (Customer, Product, Date, etc.)
+- [ ] Define Finance-specific measures and calculations
   **Priority:** HIGH | **Added:** 2026-01-29
 
 ---
@@ -70,3 +67,14 @@
 - [x] Research data modeling approaches (Star vs Data Vault vs alternatives)
   **Priority:** HIGH | **Added:** 2026-01-29 | **Completed:** 2026-01-29
   **Decision:** Star schema - best fit for Exasol, Shopify, productizable
+
+- [x] Map Shopify Orders data model (API entities and fields)
+  **Priority:** HIGH | **Added:** 2026-01-29 | **Completed:** 2026-01-29
+
+- [x] Define Orders fact table structure for generic Shopify DWH
+  **Priority:** HIGH | **Added:** 2026-01-29 | **Completed:** 2026-01-29
+  **Decision:** Two facts - fact_order_line_item (line grain) + fact_order_header
+
+- [x] Define dimension tables for Orders domain
+  **Priority:** HIGH | **Added:** 2026-01-29 | **Completed:** 2026-01-29
+  **Dimensions:** dim_date, dim_customer, dim_product, dim_geography, dim_order, dim_discount
