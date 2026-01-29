@@ -10,24 +10,39 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## User Profile
 
+**Name:** Dominic
+
 **Role & Context:**
-- Researcher/Learner
-- Focus: Research and learning with code snippets
-- Building knowledge management system
+- Head of Analytics at Digital Planet
+- Digital Planet is an ecommerce enabler
+- Building data/analytics infrastructure for Dress Your Tech
+
+**Company Structure:**
+- **Digital Planet** - Ecommerce enabler (tech and sales)
+- **Dress Your Tech** - Mobile products & accessories website on Shopify
+- **Gamatek** - Product supplier and fulfillment partner
+
+**Business Model (B2B2C):**
+- NOT traditional ecommerce (primary revenue is not cash purchases)
+- Voucher-based value-added products solution
+- Flow: Corporate clients (e.g., telecoms) → attach vouchers to their products → end consumers redeem on Dress Your Tech → Gamatek fulfills
+- Example: Telecom offers contract with mobile accessory voucher attached
 
 **Work Domains:**
-- Research documentation
-- Code snippets and examples
-- Learning notes
+- Shopify analytics and data
+- Voucher/redemption tracking
+- B2B2C ecommerce metrics
+- Data warehouse development
 
 **Tech Stack:**
 - Platform: Windows
-- (Additional tools to be added later)
+- Ecommerce: Shopify
+- (Data tools to be added as configured)
 
 **Goals:**
-- Build persistent knowledge base
-- Extract patterns from research
-- Organize code snippets effectively
+- Build persistent knowledge base for analytics work
+- Extract patterns from data/analytics projects
+- Document Shopify DWH learnings and solutions
 
 ## Architecture
 

@@ -18,9 +18,9 @@
 
 ## Project Details
 
-### research-notes
+### research-notes (Shopify DWH Research)
 
-**Type:** Personal
+**Type:** Work
 **Status:** Active
 **Priority:** HIGH
 **Health:** Healthy
@@ -32,11 +32,12 @@
 - [Notes](./research-notes/notes.md)
 
 **Current Focus:**
-- Setting up knowledge management workflow
-- Capturing research and code snippets
+- Understanding Shopify data model for Dress Your Tech
+- Researching DWH approaches for B2B2C voucher business
 
 **Recent Activity:**
 - Initial project setup (2026-01-29)
+- Added business context (Digital Planet / Gamatek / Dress Your Tech)
 
 ---
 

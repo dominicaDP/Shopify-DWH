@@ -1,6 +1,6 @@
 # Tasks
 
-**Project:** research-notes
+**Project:** Shopify DWH Research
 **Last Updated:** 2026-01-29
 
 ---
@@ -16,28 +16,35 @@
 
 ## High Priority
 
-- [ ] Define initial research topics and learning goals
+- [ ] Map Shopify data entities relevant to Dress Your Tech
+  **Priority:** HIGH | **Added:** 2026-01-29 | **Est:** 2h
+
+- [ ] Document voucher lifecycle (issued → redeemed → fulfilled)
   **Priority:** HIGH | **Added:** 2026-01-29 | **Est:** 1h
 
-- [ ] Establish workflow for capturing code snippets
-  **Priority:** HIGH | **Added:** 2026-01-29 | **Est:** 1h
+- [ ] Research Shopify API capabilities for data extraction
+  **Priority:** HIGH | **Added:** 2026-01-29 | **Est:** 2h
 
 ---
 
 ## Normal
 
-- [ ] Explore /learn command for pattern extraction
-  **Priority:** NORMAL | **Added:** 2026-01-29 | **Est:** 30m
+- [ ] Define key metrics for B2B2C voucher business model
+  **Priority:** NORMAL | **Added:** 2026-01-29 | **Est:** 1h
 
-- [ ] Test /recall command for searching knowledge
+- [ ] Evaluate ETL/data pipeline options for Shopify
+  **Priority:** NORMAL | **Added:** 2026-01-29 | **Est:** 2h
+
+- [ ] Explore /learn command for pattern extraction
   **Priority:** NORMAL | **Added:** 2026-01-29 | **Est:** 30m
 
 ---
 
 ## Backlog
 
-- [ ] Research potential MCP integrations for enhanced capabilities
-- [ ] Define categories for organizing code snippets
+- [ ] Design DWH schema for voucher-based ecommerce
+- [ ] Research attribution methods for corporate client tracking
+- [ ] Evaluate BI/reporting tool options
 - [ ] Set up weekly review ritual
 
 ---

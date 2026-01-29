@@ -1,6 +1,6 @@
-# Research Notes
+# Shopify DWH Research
 
-**Project Type:** Personal
+**Project Type:** Work
 **Status:** Active
 **Priority:** HIGH
 **Last Updated:** 2026-01-29
@@ -9,7 +9,32 @@
 
 ## Overview
 
-A knowledge management project focused on research and learning with code snippets. This project serves as the primary workspace for capturing research findings, organizing code examples, and building a persistent knowledge base.
+Knowledge base and research project for building the Shopify Data Warehouse for Dress Your Tech. Captures analytics patterns, Shopify data structures, voucher/redemption tracking approaches, and B2B2C metrics.
+
+---
+
+## Business Context
+
+### Company Structure
+- **Digital Planet** - Ecommerce enabler (tech and sales side)
+- **Dress Your Tech** - Mobile products & accessories website (Shopify)
+- **Gamatek** - Product supplier and fulfillment partner
+
+### Business Model (B2B2C)
+```
+Corporate Clients (e.g., Telecoms)
+    ↓ attach vouchers to products/contracts
+End Consumers
+    ↓ redeem vouchers
+Dress Your Tech (Shopify)
+    ↓ order data
+Gamatek (Fulfillment)
+```
+
+### Key Insight
+- NOT traditional ecommerce - primary revenue is voucher-based
+- Need to track voucher issuance, redemption, and fulfillment
+- Metrics differ from standard ecommerce (AOV, conversion less relevant)
 
 ---
 
@@ -17,75 +42,80 @@ A knowledge management project focused on research and learning with code snippe
 
 ### Core
 - **Platform:** Windows
-- **Tools:** To be configured as needed
+- **Ecommerce:** Shopify
+- **Data Warehouse:** (To be determined)
 
-### Development
-- **IDE:** (To be specified)
-- **Languages:** Various (depending on research topics)
+### Potential Tools
+- Shopify APIs / GraphQL
+- ETL tools (TBD)
+- Analytics/BI platform (TBD)
 
 ---
 
 ## Architecture
 
-### High-Level Structure
-
+### Data Flow (Conceptual)
 ```
-research-notes/
-├── context.md       # This file - project overview
-├── tasks.md         # Learning goals and topics to research
-├── patterns.md      # Patterns discovered during research
-└── notes.md         # Research notes and findings
+Shopify Store Data
+    ↓ Extract
+Staging Layer
+    ↓ Transform
+Data Warehouse
+    ↓ Serve
+Analytics / Reporting
 ```
 
-### Key Components
-
-1. **Research Topics** - Areas of active learning
-2. **Code Snippets** - Useful code examples and patterns
-3. **Learning Notes** - Insights and discoveries
+### Key Data Entities
+1. **Orders** - Voucher redemptions
+2. **Products** - Mobile accessories catalog
+3. **Customers** - End consumers (from corporate clients)
+4. **Vouchers** - Tracking codes/discounts (primary business driver)
 
 ---
 
 ## Current Focus
 
 ### Active Work
-- Setting up Second Brain knowledge management system
-- Establishing research workflow
+- Setting up knowledge management system
+- Understanding Shopify data model
+- Researching DWH approaches for Shopify
 
 ### Next Up
-- Define initial research topics
-- Begin capturing code snippets
+- Map Shopify data entities
+- Define key metrics for B2B2C model
+- Evaluate ETL/data pipeline options
 
 ### Blocked
 - None
 
 ---
 
-## Constraints
+## Key Questions to Answer
 
-### Technical
-- Windows platform
-
-### Goals
-- Build searchable knowledge base
-- Extract reusable patterns from research
-- Organize code snippets effectively
+1. How to track voucher lifecycle (issued → redeemed → fulfilled)?
+2. What Shopify data is available via APIs?
+3. How to attribute redemptions back to corporate clients?
+4. What metrics matter for a voucher-based business vs traditional ecommerce?
 
 ---
 
 ## Team / Stakeholders
 
-| Role | Name | Contact |
-|------|------|---------|
-| Owner | dominica | |
+| Role | Name | Notes |
+|------|------|-------|
+| Head of Analytics | Dominic | Owner |
+| Product Supplier | Gamatek | Fulfillment partner |
 
 ---
 
 ## Links & Resources
 
 - **Second Brain Documentation:** See CLAUDE.md in root
+- **Shopify Admin:** (add URL)
+- **Shopify API Docs:** https://shopify.dev/docs/api
 
 ---
 
 ## Notes
 
-This is the primary project for research and learning activities. Use this space to capture insights, code snippets, and patterns discovered during exploration of new topics.
+This project focuses on building analytics infrastructure for a non-traditional ecommerce model. Standard ecommerce DWH patterns may need adaptation for the voucher-based B2B2C flow.
