@@ -1,11 +1,38 @@
 # Shopify API → DWH Field Mapping
 
-**Version:** 1.1
+**Version:** 1.2
 **Last Updated:** 2026-01-30
 
 Complete field mapping from Shopify GraphQL Admin API to DWH schema.
 
-**API Base URL:** `https://{shop}.myshopify.com/admin/api/2024-01/graphql.json`
+---
+
+## Understanding GraphQL Queries
+
+Unlike REST APIs with multiple endpoints (`/orders`, `/products`, `/customers`), GraphQL uses a **single endpoint** for all data:
+
+**Endpoint:** `POST https://{shop}.myshopify.com/admin/api/2024-01/graphql.json`
+
+The **"GraphQL Query"** column in this document refers to the **query body** sent to this endpoint, not a URL path:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  POST /admin/api/2024-01/graphql.json                          │
+│                                                                 │
+│  Body: {                                                        │
+│    "query": "query { orders(first: 10) { nodes { id } } }"     │
+│  }                     ↑                                        │
+│                        └── This is what "GraphQL Query: orders" │
+│                            refers to in the tables below        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key difference from REST:**
+| REST | GraphQL |
+|------|---------|
+| `GET /orders.json` | `POST /graphql.json` with `query { orders { ... } }` |
+| `GET /products.json` | `POST /graphql.json` with `query { products { ... } }` |
+| Multiple endpoints | Single endpoint, different query bodies |
 
 ---
 
