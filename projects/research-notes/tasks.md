@@ -24,12 +24,9 @@
 ### Schema & Design
 - [ ] Design Finance dimension/fact structures
 - [ ] Define Products domain data model
-- [ ] Define Customers domain data model
-- [ ] Define Inventory domain data model (dim_location + fact_inventory_level if multi-location needed)
-- [ ] Define Fulfillment domain data model
+- [ ] Define Fulfillment domain data model (fact_fulfillment - backlogged, current flags sufficient)
 - [ ] Design DYT-specific customization layer
 - [ ] Consider dim_discount schema enhancements (title, usage_limit, usage_count, dates)
-- [ ] Decide on multi-currency handling for cost data (conversion vs store both)
 
 ### ETL Implementation
 - [ ] Set up ETL project structure on Linux server
@@ -46,7 +43,6 @@
 
 ### Other
 - [ ] Market opportunity analysis
-- [ ] Research Orders API structure for ETL design
 
 ---
 
@@ -113,3 +109,27 @@
 - [x] Review and refine schema.md for Exasol-specific considerations
   **Priority:** HIGH | **Added:** 2026-01-29 | **Completed:** 2026-01-30
   **Added:** Distribution keys, partition keys, replication border config, VARCHAR sizing, DDL examples
+
+- [x] Research Orders API structure for ETL design
+  **Priority:** NORMAL | **Completed:** 2026-01-30
+  **Finding:** Schema validated against API. All fields map correctly. Use shopMoney from MoneyBag.
+
+- [x] Research Customers API and validate dim_customer schema
+  **Priority:** NORMAL | **Completed:** 2026-01-30
+  **Finding:** Schema validated. Note deprecated fields (email, phone, emailMarketingConsent) - use new object patterns in ETL.
+
+- [x] Research Fulfillment API for generic layer
+  **Priority:** NORMAL | **Completed:** 2026-01-30
+  **Finding:** FulfillmentOrder (plan) vs Fulfillment (actual). Current schema sufficient (Option A). Backlog fact_fulfillment for carrier analytics.
+
+- [x] Define Inventory domain data model
+  **Priority:** NORMAL | **Completed:** 2026-01-30
+  **Decision:** Option C - Add dim_location now, backlog fact_inventory_snapshot for later.
+
+- [x] Decide on multi-currency handling
+  **Priority:** NORMAL | **Completed:** 2026-01-30
+  **Decision:** Option B - Use shopMoney amounts, store currency in dim_order.currency.
+
+- [x] Consolidate generic layer documentation
+  **Priority:** HIGH | **Completed:** 2026-01-30
+  **Created:** README.md, api-mapping.md, implementation-guide.md

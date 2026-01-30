@@ -249,6 +249,36 @@ Star schema design for generic Shopify DWH.
 
 ---
 
+### dim_location
+
+**Type:** SCD Type 1
+
+| Column | Type | Null | Description |
+|--------|------|------|-------------|
+| `location_key` | BIGINT | NO | Surrogate PK |
+| `location_id` | VARCHAR(50) | NO | Shopify location ID |
+| `name` | VARCHAR(255) | NO | Location name |
+| `address1` | VARCHAR(255) | YES | Street address |
+| `address2` | VARCHAR(255) | YES | Additional address |
+| `city` | VARCHAR(100) | YES | City |
+| `province` | VARCHAR(100) | YES | Province/state |
+| `province_code` | VARCHAR(10) | YES | Province code |
+| `country` | VARCHAR(100) | YES | Country |
+| `country_code` | VARCHAR(5) | YES | ISO country code |
+| `zip` | VARCHAR(20) | YES | Postal code |
+| `phone` | VARCHAR(50) | YES | Contact phone |
+| `is_active` | BOOLEAN | NO | Currently active |
+| `fulfills_online_orders` | BOOLEAN | NO | Fulfills online orders |
+| `_loaded_at` | TIMESTAMP | NO | ETL load timestamp |
+
+**Note:** Row with `location_key = 0` reserved for "Unknown Location" default.
+
+**Future Use:**
+- FK for fact_fulfillment (when implemented)
+- FK for fact_inventory_snapshot (when implemented)
+
+---
+
 ## Default/Unknown Rows
 
 Each dimension should have a default row for handling nulls:
@@ -260,6 +290,7 @@ Each dimension should have a default row for handling nulls:
 | dim_geography | 0 | Unknown Location |
 | dim_order | 0 | Unknown Order |
 | dim_discount | 0 | No Discount |
+| dim_location | 0 | Unknown Location |
 
 ---
 
@@ -378,10 +409,29 @@ For time-based comparisons, typical patterns:
 
 ---
 
+## Currency Handling
+
+**Approach:** Option B - Store currency code, use shop currency amounts
+
+| Aspect | Implementation |
+|--------|----------------|
+| Financial amounts | `shopMoney.amount` from Shopify MoneyBag |
+| Currency storage | `dim_order.currency` (per order) |
+| Multi-currency shops | Filter/group by `dim_order.currency` |
+| Cost data | `dim_product.cost` in shop currency |
+
+**Not implemented (backlogged):**
+- presentmentMoney (customer's display currency)
+- Exchange rate conversion
+- Normalized currency
+
+---
+
 ## Open Items
 
 - [x] Confirm Exasol-specific data types
 - [x] Define indexes/distribution keys for Exasol
+- [x] Multi-currency handling decision
 - [ ] Consider dim_time for time-of-day analysis
 - [ ] Define view layer for calculated measures
 
@@ -485,6 +535,7 @@ ALTER SYSTEM SET REPLICATION_BORDER = 500000;
 | dim_geography | <10,000 | ✓ Yes |
 | dim_order | <50,000 | ✓ Yes |
 | dim_discount | <1,000 | ✓ Yes |
+| dim_location | <100 | ✓ Yes |
 
 All dimensions well under default 100k border - will auto-replicate.
 

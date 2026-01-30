@@ -124,6 +124,42 @@ Added Exasol-specific optimizations:
 - Reduced VARCHAR sizing (titles 500→255)
 - DDL reference with DISTRIBUTE BY / PARTITION BY
 
+**2026-01-30: Inventory Domain - Minimal Approach (Option C)**
+
+Decision: Add dim_location now, backlog fact_inventory_snapshot.
+
+Reasoning:
+- dim_location is low-cost, enables future fulfillment and inventory analytics
+- fact_inventory_snapshot requires daily snapshot ETL and grows storage
+- No clear use case yet for stock-level tracking in generic layer
+- Can add fact_inventory_snapshot when specific need emerges
+
+Backlogged for future:
+- fact_inventory_snapshot (stock levels per location per day)
+- Inventory turnover metrics
+- Stock-out analysis
+
+**2026-01-30: Multi-Currency Handling (Option B)**
+
+Decision: Store currency code via dim_order.currency, use shopMoney amounts consistently.
+
+Implementation:
+- All financial amounts use `shopMoney.amount` (merchant's base currency)
+- Currency code stored in `dim_order.currency` (already in schema)
+- No currency fields needed on fact tables (join to dim_order)
+- For multi-currency shops: filter/group by dim_order.currency
+
+Reasoning:
+- Low cost (field already exists)
+- Validates data integrity
+- Supports multi-currency Shopify stores
+- Can upgrade to dual-currency or normalized if needed later
+
+Not implemented (backlogged):
+- presentmentMoney storage (customer's currency)
+- Exchange rate dimension
+- Normalized currency conversion
+
 ### To Research
 - ~~ETL/pipeline tooling options~~ ✓ Decided: Custom Python + PyExasol
 - ~~Competitive landscape~~ ✓ Gap identified for Exasol-native solution
@@ -168,10 +204,10 @@ All to be included in holistic design, worked sequentially:
 | **Orders** | 1st | ✓ Schema defined | Core transactions, redemptions |
 | **Finance** | 1st | ✓ Measures defined | Revenue, discounts, transaction values |
 | **Products** | Later | ✓ Dimension defined | Mobile accessories catalog |
-| **Customers** | Later | ◐ Dimension drafted | End consumers |
-| **Inventory** | Later | ◐ API researched | Stock levels, cost data (InventoryItem/InventoryLevel) |
+| **Customers** | Later | ✓ Schema validated | End consumers (note: use new object patterns for email/phone/marketing) |
+| **Inventory** | Later | ✓ Decision made | dim_location added; fact_inventory_snapshot backlogged |
 | **Vouchers/Discounts** | Later | ✓ API researched | Codes, values, usage tracking (asyncUsageCount) |
-| **Fulfillment** | Later | ○ Pending | Gamatek handoff, shipping |
+| **Fulfillment** | Later | ✓ API researched | Current flags sufficient; fact_fulfillment backlogged for carrier analytics |
 
 **Legend:** ✓ Complete | ◐ Partial | ○ Pending
 
@@ -188,6 +224,7 @@ All to be included in holistic design, worked sequentially:
 - `dim_geography` - Shipping/billing locations
 - `dim_order` - Order attributes
 - `dim_discount` - Discount codes
+- `dim_location` - Fulfillment locations (for future use)
 
 **Finance Measures:**
 - Revenue (Gross, Net, Total, Refund)
@@ -251,5 +288,14 @@ All to be included in holistic design, worked sequentially:
 
 ## Links & Resources
 
-- **Shopify API Docs:** https://shopify.dev/docs/api
-- **Shopify Admin API:** https://shopify.dev/docs/api/admin
+### Project Documentation
+- [README.md](README.md) - Project overview
+- [schema.md](schema.md) - DWH schema definition
+- [api-mapping.md](api-mapping.md) - Shopify API → DWH mapping
+- [implementation-guide.md](implementation-guide.md) - ETL implementation reference
+- [notes.md](notes.md) - Research notes
+
+### External
+- **Shopify GraphQL Docs:** https://shopify.dev/docs/api/admin-graphql
+- **PyExasol:** https://github.com/exasol/pyexasol
+- **Shopify Bulk Operations:** https://shopify.dev/docs/api/usage/bulk-operations

@@ -21,6 +21,10 @@ memory/episodic/
 
 | Date | Type | Description | Project |
 |------|------|-------------|---------|
+| 2026-01-30 | documentation | Generic layer documentation consolidated | Shopify DWH |
+| 2026-01-30 | research | Fulfillment API research - plan vs actual pattern, design options | Shopify DWH |
+| 2026-01-30 | validation | Customers API research - schema validated, deprecated fields noted | Shopify DWH |
+| 2026-01-30 | validation | Orders API research - schema validated | Shopify DWH |
 | 2026-01-30 | optimization | Exasol schema review - distribution/partition keys | Shopify DWH |
 | 2026-01-30 | decision | ETL tooling evaluation - Custom Python + PyExasol | Shopify DWH |
 | 2026-01-30 | research | Discount/voucher API research (codes, redemptions) | Shopify DWH |

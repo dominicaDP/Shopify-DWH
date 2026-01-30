@@ -330,16 +330,26 @@ For large data extraction:
 - `cost` field already exists as DECIMAL(18,2) nullable
 - ETL will join Product → Variant → InventoryItem to populate
 
-**Future consideration - Inventory domain:**
+#### Inventory Domain Decision (2026-01-30)
+
+**Decision:** Option C - Minimal approach
+
+**Implemented now:**
 ```
-dim_location (if multi-location)
-├── location_key
+dim_location
+├── location_key (PK)
 ├── location_id
 ├── name
-├── address fields...
+├── address1, address2, city, province, country
+├── is_active
+├── fulfills_online_orders
+├── _loaded_at
+```
 
-fact_inventory_level (per item per location per snapshot)
-├── inventory_level_key
+**Backlogged for future:**
+```
+fact_inventory_snapshot (per item per location per day)
+├── snapshot_key (PK)
 ├── product_key (FK)
 ├── location_key (FK)
 ├── snapshot_date_key (FK)
@@ -347,7 +357,14 @@ fact_inventory_level (per item per location per snapshot)
 ├── quantity_on_hand
 ├── quantity_committed
 ├── quantity_incoming
+├── quantity_reserved
+├── _loaded_at
 ```
+
+**Rationale:**
+- dim_location is low-cost, enables future fulfillment/inventory analytics
+- fact_inventory_snapshot requires daily ETL and storage growth
+- No clear use case yet - add when specific need emerges
 
 ---
 
@@ -544,9 +561,754 @@ query {
 - ~~Products (mobile accessories)~~ ✅ Done
 - ~~InventoryItem (for cost data)~~ ✅ Done
 - ~~Discount Codes (vouchers)~~ ✅ Done
-- Orders (redemptions)
-- Customers (end consumers)
-- Metafields (custom data?)
+- ~~Orders (redemptions)~~ ✅ Done
+- ~~Customers (end consumers)~~ ✅ Done
+- ~~Fulfillment~~ ✅ Done
+- Metafields (custom data?) - Deferred to Layer 2
+
+### 2026-01-30 - Orders API Research
+
+**Source:** Shopify GraphQL Admin API - Order, LineItem, Refund
+
+#### Order Object - Key Fields
+
+**Identity:**
+| API Field | Type | DWH Mapping |
+|-----------|------|-------------|
+| `id` | ID | → order_id |
+| `name` | String | → order_name (e.g., "#1001") |
+| `confirmationNumber` | String | *Consider adding* |
+
+**Financial (MoneyBag - has shopMoney + presentmentMoney):**
+| API Field | Type | DWH Mapping |
+|-----------|------|-------------|
+| `subtotalPriceSet` | MoneyBag | → subtotal (use shopMoney.amount) |
+| `totalDiscountsSet` | MoneyBag | → total_discount |
+| `totalTaxSet` | MoneyBag | → total_tax |
+| `totalShippingPriceSet` | MoneyBag | → shipping_amount |
+| `totalPriceSet` | MoneyBag | → total_price |
+| `totalRefundedSet` | MoneyBag | → total_refunded |
+| `netPaymentSet` | MoneyBag | → net_payment |
+| `currencyCode` | CurrencyCode | *Consider adding* |
+
+**Status:**
+| API Field | Type | DWH Mapping |
+|-----------|------|-------------|
+| `displayFinancialStatus` | String | → dim_order.financial_status |
+| `displayFulfillmentStatus` | String | → fulfillment_status + is_fulfilled flags |
+| `cancelledAt` | DateTime | → is_cancelled (NOT NULL check) |
+| `cancelReason` | String | → dim_order.cancel_reason |
+| `test` | Boolean | *Consider adding* (filter test orders) |
+
+**Timestamps:**
+| API Field | Type | DWH Mapping |
+|-----------|------|-------------|
+| `createdAt` | DateTime | → order_date_key derivation |
+| `processedAt` | DateTime | → dim_order.processed_at |
+| `closedAt` | DateTime | → dim_order.closed_at |
+| `cancelledAt` | DateTime | → dim_order.cancelled_at |
+
+**Relationships:**
+| API Field | Type | DWH Mapping |
+|-----------|------|-------------|
+| `customer` | Customer | → customer_key (via customer.id) |
+| `shippingAddress` | MailingAddress | → ship_address_key |
+| `billingAddress` | MailingAddress | → bill_address_key |
+| `lineItems` | LineItemConnection | → fact_order_line_item |
+| `discountApplications` | DiscountApplicationConnection | → discount_key derivation |
+| `refunds` | RefundConnection | → total_refunded, is_refunded |
+
+#### LineItem Object - Key Fields
+
+**Identity:**
+| API Field | Type | DWH Mapping |
+|-----------|------|-------------|
+| `id` | ID | → line_item_id |
+| `sku` | String | → sku |
+| `name` | String | Full product + variant name |
+| `title` | String | Product title |
+| `variantTitle` | String | Variant title |
+
+**Quantities:**
+| API Field | Type | DWH Mapping |
+|-----------|------|-------------|
+| `quantity` | Int | → quantity |
+| `currentQuantity` | Int | Current after refunds |
+| `unfulfilledQuantity` | Int | For is_fulfilled derivation |
+| `refundableQuantity` | Int | For is_refunded derivation |
+
+**Pricing (MoneyBag):**
+| API Field | Type | DWH Mapping |
+|-----------|------|-------------|
+| `originalUnitPriceSet` | MoneyBag | → unit_price |
+| `originalTotalSet` | MoneyBag | → line_subtotal |
+| `discountedTotalSet` | MoneyBag | → line_total |
+| `totalDiscountSet` | MoneyBag | → line_discount_amount |
+
+**Tax:**
+| API Field | Type | Notes |
+|-----------|------|-------|
+| `taxable` | Boolean | → is_taxable |
+| `taxLines` | [TaxLine] | Need to SUM for line_tax_amount |
+
+**Flags:**
+| API Field | Type | DWH Mapping |
+|-----------|------|-------------|
+| `isGiftCard` | Boolean | → is_gift_card |
+| `requiresShipping` | Boolean | Physical product flag |
+
+**Product Relationship:**
+| API Field | Type | Notes |
+|-----------|------|-------|
+| `variant` | ProductVariant | → product_key (via variant.id) |
+| `product` | Product | Alternative path |
+
+#### MoneyBag Structure
+
+Every `*Set` financial field returns MoneyBag:
+```graphql
+totalPriceSet {
+  shopMoney {
+    amount       # Decimal string in shop's currency
+    currencyCode # e.g., "ZAR"
+  }
+  presentmentMoney {
+    amount       # Decimal string in customer's currency
+    currencyCode # e.g., "USD"
+  }
+}
+```
+
+**Decision:** Use `shopMoney` for DWH (merchant's base currency, consistent for reporting)
+
+#### Schema Validation Results
+
+**fact_order_line_item:**
+| Our Field | API Source | Status |
+|-----------|------------|--------|
+| line_item_key | Generated | ✓ OK |
+| order_key | Generated | ✓ OK |
+| product_key | variant.id lookup | ✓ OK |
+| customer_key | order.customer.id | ✓ OK |
+| order_date_key | order.createdAt | ✓ OK |
+| ship_address_key | order.shippingAddress | ✓ OK |
+| discount_key | discountApplications | ✓ OK |
+| order_id | order.id | ✓ OK |
+| order_name | order.name | ✓ OK |
+| line_item_id | lineItem.id | ✓ OK |
+| sku | lineItem.sku | ✓ OK |
+| quantity | lineItem.quantity | ✓ OK |
+| unit_price | originalUnitPriceSet.shopMoney.amount | ✓ OK |
+| line_subtotal | originalTotalSet.shopMoney.amount | ✓ OK |
+| line_discount_amount | totalDiscountSet.shopMoney.amount | ✓ OK |
+| line_tax_amount | SUM(taxLines.priceSet) | ⚠️ Aggregate needed |
+| line_total | discountedTotalSet.shopMoney.amount | ✓ OK |
+| is_gift_card | isGiftCard | ✓ OK |
+| is_taxable | taxable | ✓ OK |
+| is_fulfilled | unfulfilledQuantity == 0 | ⚠️ Derived |
+| is_refunded | currentQuantity < quantity | ⚠️ Derived |
+
+**fact_order_header:**
+| Our Field | API Source | Status |
+|-----------|------------|--------|
+| subtotal | subtotalPriceSet.shopMoney.amount | ✓ OK |
+| total_discount | totalDiscountsSet.shopMoney.amount | ✓ OK |
+| total_tax | totalTaxSet.shopMoney.amount | ✓ OK |
+| shipping_amount | totalShippingPriceSet.shopMoney.amount | ✓ OK |
+| total_price | totalPriceSet.shopMoney.amount | ✓ OK |
+| total_refunded | totalRefundedSet.shopMoney.amount | ✓ OK |
+| net_payment | netPaymentSet.shopMoney.amount | ✓ OK |
+| is_cancelled | cancelledAt IS NOT NULL | ✓ OK |
+| is_fulfilled | displayFulfillmentStatus == 'FULFILLED' | ✓ OK |
+| is_partially_fulfilled | displayFulfillmentStatus == 'PARTIALLY_FULFILLED' | ✓ OK |
+
+#### Potential Schema Enhancements
+
+**fact_order_header additions:**
+| Field | Source | Priority | Rationale |
+|-------|--------|----------|-----------|
+| `currency_code` | currencyCode | MEDIUM | Multi-currency reporting |
+| `is_test_order` | test | LOW | Filter test data |
+
+**dim_order additions:**
+| Field | Source | Priority | Rationale |
+|-------|--------|----------|-----------|
+| `confirmation_number` | confirmationNumber | LOW | Customer service lookup |
+
+#### ETL Query Example
+
+```graphql
+query BulkOrdersExport {
+  orders {
+    edges {
+      node {
+        id
+        name
+        createdAt
+        processedAt
+        cancelledAt
+        cancelReason
+        displayFinancialStatus
+        displayFulfillmentStatus
+        currencyCode
+        test
+
+        # Financial totals
+        subtotalPriceSet { shopMoney { amount currencyCode } }
+        totalDiscountsSet { shopMoney { amount currencyCode } }
+        totalTaxSet { shopMoney { amount currencyCode } }
+        totalShippingPriceSet { shopMoney { amount currencyCode } }
+        totalPriceSet { shopMoney { amount currencyCode } }
+        totalRefundedSet { shopMoney { amount currencyCode } }
+        netPaymentSet { shopMoney { amount currencyCode } }
+
+        # Customer
+        customer { id }
+
+        # Addresses
+        shippingAddress {
+          city
+          province
+          provinceCode
+          country
+          countryCodeV2
+          zip
+          latitude
+          longitude
+        }
+        billingAddress {
+          city
+          province
+          provinceCode
+          country
+          countryCodeV2
+          zip
+        }
+
+        # Discount codes
+        discountCodes
+        discountApplications(first: 10) {
+          edges {
+            node {
+              ... on DiscountCodeApplication {
+                code
+                allocationMethod
+                targetType
+                value {
+                  ... on MoneyV2 { amount currencyCode }
+                  ... on PricingPercentageValue { percentage }
+                }
+              }
+            }
+          }
+        }
+
+        # Line items
+        lineItems(first: 100) {
+          edges {
+            node {
+              id
+              sku
+              quantity
+              currentQuantity
+              unfulfilledQuantity
+              isGiftCard
+              taxable
+
+              variant { id }
+
+              originalUnitPriceSet { shopMoney { amount } }
+              originalTotalSet { shopMoney { amount } }
+              discountedTotalSet { shopMoney { amount } }
+              totalDiscountSet { shopMoney { amount } }
+
+              taxLines {
+                priceSet { shopMoney { amount } }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+#### Deprecated Fields to Avoid
+
+Use `*Set` variants instead of deprecated scalar fields:
+- ❌ `subtotalPrice` → ✓ `subtotalPriceSet`
+- ❌ `totalPrice` → ✓ `totalPriceSet`
+- ❌ `totalDiscounts` → ✓ `totalDiscountsSet`
+- ❌ `totalTax` → ✓ `totalTaxSet`
+- ❌ `totalRefunded` → ✓ `totalRefundedSet`
+- ❌ `cartDiscountAmount` → ✓ `cartDiscountAmountSet`
+
+#### Required Scopes
+
+```
+read_orders  # Primary scope needed
+```
+
+#### Query Filters for Incremental Loads
+
+```graphql
+# Orders updated since last sync
+orders(query: "updated_at:>'2026-01-29T00:00:00Z'")
+
+# Filter by financial status
+orders(query: "financial_status:paid")
+
+# Filter by fulfillment status
+orders(query: "fulfillment_status:shipped")
+```
+
+---
+
+### 2026-01-30 - Customers API Research
+
+**Source:** Shopify GraphQL Admin API - Customer, CustomerEmailAddress, MailingAddress
+
+#### Customer Object - Key Fields
+
+**Identity:**
+| API Field | Type | DWH Mapping |
+|-----------|------|-------------|
+| `id` | ID | → customer_id |
+| `firstName` | String | → first_name |
+| `lastName` | String | → last_name |
+| `displayName` | String | *Consider adding* (derived: first + last) |
+
+**Contact (New Pattern - Deprecated scalars):**
+| API Field | Type | DWH Mapping |
+|-----------|------|-------------|
+| `defaultEmailAddress` | CustomerEmailAddress | → email (use .emailAddress) |
+| `defaultPhoneNumber` | CustomerPhoneNumber | → phone (use .phoneNumber) |
+| ~~`email`~~ | ~~String~~ | ❌ DEPRECATED |
+| ~~`phone`~~ | ~~String~~ | ❌ DEPRECATED |
+
+**Aggregates:**
+| API Field | Type | DWH Mapping |
+|-----------|------|-------------|
+| `amountSpent` | MoneyV2 | → total_spent (.amount) |
+| `numberOfOrders` | Int | → order_count |
+
+**Marketing Consent (New Pattern):**
+| API Field | Type | DWH Mapping |
+|-----------|------|-------------|
+| `defaultEmailAddress.marketingState` | CustomerEmailAddressMarketingState | → accepts_marketing |
+| `defaultEmailAddress.marketingOptInLevel` | CustomerMarketingOptInLevel | *Consider adding* |
+| ~~`emailMarketingConsent`~~ | ~~CustomerEmailMarketingConsentState~~ | ❌ DEPRECATED |
+| ~~`smsMarketingConsent`~~ | ~~CustomerSmsMarketingConsentState~~ | ❌ DEPRECATED |
+
+**Marketing State Values:**
+- `NOT_SUBSCRIBED` - Not subscribed
+- `PENDING` - Pending confirmation
+- `SUBSCRIBED` - Opted in
+- `UNSUBSCRIBED` - Opted out
+- `REDACTED` - Data redacted
+- `INVALID` - Invalid email
+
+**Marketing Opt-In Levels:**
+- `SINGLE_OPT_IN` - Subscribed without confirmation
+- `CONFIRMED_OPT_IN` - Double opt-in confirmed
+- `UNKNOWN` - Unknown
+
+**Metadata:**
+| API Field | Type | DWH Mapping |
+|-----------|------|-------------|
+| `tags` | [String] | → tags (join with comma) |
+| `note` | String | *Consider adding* |
+| `createdAt` | DateTime | → created_at |
+| `updatedAt` | DateTime | *Consider adding* (for SCD tracking) |
+
+**Default Address:**
+| API Field | Type | DWH Mapping |
+|-----------|------|-------------|
+| `defaultAddress.country` | String | → default_country |
+| `defaultAddress.province` | String | → default_province |
+| `defaultAddress.city` | String | *Available but not mapped* |
+| ~~`addresses`~~ | ~~MailingAddressConnection~~ | ❌ DEPRECATED |
+
+#### CustomerEmailAddress Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `emailAddress` | String | The actual email address |
+| `marketingState` | CustomerEmailAddressMarketingState | Current marketing consent |
+| `marketingOptInLevel` | CustomerMarketingOptInLevel | How consent was obtained |
+| `marketingUnsubscribeUrl` | URL | Unsubscribe link |
+| `openTrackingLevel` | CustomerEmailAddressOpenTrackingLevel | Email open tracking |
+| `validFormat` | Boolean | Whether format is valid |
+
+#### Schema Validation Results
+
+**dim_customer:**
+| Our Field | API Source | Status |
+|-----------|------------|--------|
+| customer_key | Generated | ✓ OK |
+| customer_id | id | ✓ OK |
+| email | defaultEmailAddress.emailAddress | ⚠️ Use new field |
+| first_name | firstName | ✓ OK |
+| last_name | lastName | ✓ OK |
+| phone | defaultPhoneNumber.phoneNumber | ⚠️ Use new field |
+| accepts_marketing | defaultEmailAddress.marketingState | ⚠️ Derive from enum |
+| created_at | createdAt | ✓ OK |
+| order_count | numberOfOrders | ✓ OK |
+| total_spent | amountSpent.amount | ✓ OK (MoneyV2) |
+| default_country | defaultAddress.country | ✓ OK |
+| default_province | defaultAddress.province | ✓ OK |
+| tags | tags (array → comma string) | ✓ OK |
+
+**ETL Notes:**
+- `accepts_marketing` = TRUE when `marketingState` IN ('SUBSCRIBED', 'PENDING')
+- `tags` array must be joined with commas for VARCHAR storage
+- `amountSpent` is MoneyV2 type - use `.amount` field
+
+#### Potential Schema Additions
+
+| Field | Source | Priority | Rationale |
+|-------|--------|----------|-----------|
+| `note` | note | LOW | Customer notes (internal use) |
+| `updated_at` | updatedAt | LOW | Track last change timestamp |
+| `marketing_opt_in_level` | defaultEmailAddress.marketingOptInLevel | LOW | Distinguish single vs double opt-in |
+
+**Recommendation:** Current schema is sufficient for generic layer. Add note/updated_at if specific use cases emerge.
+
+#### ETL Query Example
+
+```graphql
+query BulkCustomersExport {
+  customers {
+    edges {
+      node {
+        id
+        firstName
+        lastName
+        createdAt
+        updatedAt
+        tags
+        note
+
+        # Contact (using new objects)
+        defaultEmailAddress {
+          emailAddress
+          marketingState
+          marketingOptInLevel
+        }
+        defaultPhoneNumber {
+          phoneNumber
+        }
+
+        # Aggregates
+        amountSpent { amount currencyCode }
+        numberOfOrders
+
+        # Default address
+        defaultAddress {
+          country
+          countryCodeV2
+          province
+          provinceCode
+          city
+        }
+      }
+    }
+  }
+}
+```
+
+#### Deprecated Fields to Avoid
+
+Use new object patterns instead of deprecated scalar fields:
+- ❌ `email` → ✓ `defaultEmailAddress.emailAddress`
+- ❌ `phone` → ✓ `defaultPhoneNumber.phoneNumber`
+- ❌ `emailMarketingConsent` → ✓ `defaultEmailAddress.marketingState`
+- ❌ `smsMarketingConsent` → ✓ `defaultPhoneNumber.marketingState`
+- ❌ `addresses` → ✓ `defaultAddress` (single address)
+
+#### Required Scopes
+
+```
+read_customers  # Primary scope needed
+```
+
+#### Query Filters for Incremental Loads
+
+```graphql
+# Customers updated since last sync
+customers(query: "updated_at:>'2026-01-29T00:00:00Z'")
+
+# Filter by country
+customers(query: "country:ZA")
+
+# Filter by tag
+customers(query: "tag:vip")
+
+# Filter by orders
+customers(query: "orders_count:>5")
+```
+
+---
+
+### 2026-01-30 - Fulfillment API Research
+
+**Source:** Shopify GraphQL Admin API - Fulfillment, FulfillmentOrder, FulfillmentLineItem, DeliveryMethod
+
+#### Fulfillment Object Hierarchy
+
+```
+Order
+  └→ fulfillmentOrders (FulfillmentOrder[])
+       ├→ deliveryMethod (DeliveryMethod)
+       ├→ destination (address)
+       ├→ status (FulfillmentOrderStatus)
+       └→ fulfillments (Fulfillment[])
+            ├→ status (FulfillmentStatus)
+            ├→ trackingInfo (FulfillmentTrackingInfo)
+            ├→ location (Location)
+            └→ fulfillmentLineItems (FulfillmentLineItem[])
+                 ├→ lineItem (LineItem reference)
+                 └→ quantity (fulfilled)
+```
+
+**Key Concept:**
+- **FulfillmentOrder** = What SHOULD be shipped (grouped by location)
+- **Fulfillment** = What WAS shipped (actual shipment record)
+
+#### FulfillmentOrder Object
+
+**Grain:** Groups items to be fulfilled from same location
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | ID | Unique identifier |
+| `status` | FulfillmentOrderStatus | Current workflow state |
+| `assignedLocation` | Location | Fulfillment location |
+| `deliveryMethod` | DeliveryMethod | How it will be delivered |
+| `destination` | FulfillmentOrderDestination | Ship-to address |
+| `fulfillAt` | DateTime | Scheduled fulfillment time |
+| `order` | Order | Parent order |
+| `lineItems` | FulfillmentOrderLineItem[] | Items to fulfill |
+| `fulfillments` | Fulfillment[] | Completed shipments |
+| `createdAt` / `updatedAt` | DateTime | Timestamps |
+
+**FulfillmentOrderStatus Enum:**
+| Value | Description |
+|-------|-------------|
+| `OPEN` | Ready for processing |
+| `IN_PROGRESS` | Currently being processed |
+| `SCHEDULED` | Scheduled for future fulfillment |
+| `ON_HOLD` | Temporarily held |
+| `INCOMPLETE` | Partially complete |
+| `CLOSED` | Completed |
+| `CANCELLED` | Cancelled |
+
+#### Fulfillment Object
+
+**Grain:** One row per shipment (can have multiple per order)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | ID | Unique identifier |
+| `name` | String | Fulfillment name (e.g., "#1001-F1") |
+| `status` | FulfillmentStatus | Shipment status |
+| `trackingInfo` | FulfillmentTrackingInfo[] | Carrier & tracking |
+| `location` | Location | Ship-from location |
+| `totalQuantity` | Int | Total units shipped |
+| `fulfillmentLineItems` | FulfillmentLineItem[] | Items in shipment |
+| `createdAt` | DateTime | When created |
+| `inTransitAt` | DateTime | When shipped |
+| `deliveredAt` | DateTime | When delivered |
+| `estimatedDeliveryAt` | DateTime | Expected delivery |
+
+**FulfillmentStatus Enum:**
+| Value | Description |
+|-------|-------------|
+| `SUCCESS` | Completed successfully |
+| `CANCELLED` | Cancelled |
+| `ERROR` | Error condition |
+| `FAILURE` | Failed to complete |
+| ~~`OPEN`~~ | ❌ Deprecated |
+| ~~`PENDING`~~ | ❌ Deprecated |
+
+#### FulfillmentTrackingInfo Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `company` | String | Carrier name (e.g., "DHL", "Aramex") |
+| `number` | String | Tracking number |
+| `url` | URL | Tracking URL |
+
+#### FulfillmentLineItem Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | ID | Unique identifier |
+| `lineItem` | LineItem | Reference to order line item |
+| `quantity` | Int | Units fulfilled |
+| `originalTotalSet` | MoneyBag | Pre-discount value |
+| `discountedTotalSet` | MoneyBag | Post-discount value |
+
+#### DeliveryMethod Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `methodType` | DeliveryMethodType | Delivery category |
+| `presentedName` | String | Name shown to customer |
+| `serviceCode` | String | Service identifier |
+| `minDeliveryDateTime` | DateTime | Earliest delivery |
+| `maxDeliveryDateTime` | DateTime | Latest delivery |
+
+**DeliveryMethodType Enum:**
+| Value | Description |
+|-------|-------------|
+| `SHIPPING` | Standard shipping |
+| `LOCAL` | Local delivery |
+| `PICK_UP` | Customer pickup |
+| `PICKUP_POINT` | Designated pickup location |
+| `RETAIL` | Retail store delivery |
+| `NONE` | No delivery method |
+
+#### DWH Design Options
+
+**Option A: Simple (Current Approach)**
+Track fulfillment at order/line item level:
+- `fact_order_line_item.is_fulfilled` (derived from unfulfilledQuantity == 0)
+- `fact_order_header.is_fulfilled`, `is_partially_fulfilled`
+- `dim_order.fulfillment_status`
+
+**Pros:** Simple, covers 80% of analytics needs
+**Cons:** No shipment-level tracking, no carrier analytics
+
+**Option B: Fulfillment Fact Table**
+Add `fact_fulfillment` for shipment-level analysis:
+
+```
+fact_fulfillment
+├── fulfillment_key (PK)
+├── order_key (FK)
+├── fulfillment_id
+├── fulfillment_name
+├── location_key (FK → dim_location)
+├── carrier_name
+├── tracking_number
+├── delivery_method_type
+├── status
+├── total_quantity
+├── created_at
+├── shipped_at (inTransitAt)
+├── delivered_at
+├── estimated_delivery_at
+├── _loaded_at
+```
+
+**Pros:** Full shipment analytics, carrier performance, delivery times
+**Cons:** More complexity, requires dim_location
+
+**Option C: Fulfillment Line Item Grain**
+Add `fact_fulfillment_line_item` for item-level shipment tracking:
+
+```
+fact_fulfillment_line_item
+├── fulfillment_line_key (PK)
+├── fulfillment_key (FK)
+├── line_item_key (FK)
+├── quantity_fulfilled
+├── _loaded_at
+```
+
+**Pros:** Full traceability, partial fulfillment tracking
+**Cons:** Most complex, may be overkill
+
+#### Recommendation for Generic Layer
+
+**Start with Option A** (current approach):
+- Fulfillment flags already exist in schema
+- Sufficient for "was it shipped?" analysis
+- Most Shopify stores don't need shipment-level analytics
+
+**Backlog Option B** for future:
+- Add when carrier performance analysis needed
+- Add when multi-location fulfillment tracking needed
+- Would require dim_location (already designed for inventory)
+
+#### ETL Query Example
+
+```graphql
+query OrderWithFulfillments {
+  orders(first: 50) {
+    edges {
+      node {
+        id
+        name
+        displayFulfillmentStatus
+
+        fulfillmentOrders(first: 10) {
+          edges {
+            node {
+              status
+              assignedLocation { name }
+              deliveryMethod {
+                methodType
+                presentedName
+              }
+
+              fulfillments(first: 5) {
+                edges {
+                  node {
+                    id
+                    name
+                    status
+                    totalQuantity
+                    createdAt
+                    inTransitAt
+                    deliveredAt
+
+                    trackingInfo(first: 3) {
+                      company
+                      number
+                      url
+                    }
+
+                    fulfillmentLineItems(first: 50) {
+                      edges {
+                        node {
+                          quantity
+                          lineItem { id sku }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+#### Required Scopes
+
+```
+read_orders                              # Basic access
+read_assigned_fulfillment_orders         # If using fulfillment services
+read_merchant_managed_fulfillment_orders # For merchant-managed
+read_third_party_fulfillment_orders      # For 3PL integrations
+```
+
+#### Gamatek Integration Notes (DYT Layer 2)
+
+For DYT-specific fulfillment tracking with Gamatek:
+- Standard Fulfillment object captures shipment data
+- `trackingInfo` captures carrier/tracking from Gamatek
+- May need custom fields via metafields for Gamatek-specific data
+- Consider: Gamatek order ID, warehouse location, special handling notes
+
+---
 
 ### API Considerations
 - ~~REST API vs GraphQL~~ → **Use GraphQL** (REST being deprecated)
@@ -938,11 +1700,58 @@ read_inventory (if tracking stock)
 
 ---
 
+### 2026-01-30 - Multi-Currency Handling Decision
+
+**Decision:** Option B - Store currency code, use shopMoney amounts
+
+#### Implementation
+
+**Financial Amounts:**
+- All amounts use `shopMoney.amount` from MoneyBag fields
+- Stored in DECIMAL(18,2) columns
+- Consistent currency for all calculations
+
+**Currency Tracking:**
+- `dim_order.currency` stores the order's currency code (e.g., "ZAR", "USD")
+- Already exists in schema - just ensure ETL populates from `Order.currencyCode`
+- No currency fields needed on fact tables (join to dim_order)
+
+**Multi-Currency Shop Handling:**
+```sql
+-- Filter to specific currency
+SELECT SUM(total_price)
+FROM fact_order_header foh
+JOIN dim_order do ON foh.order_key = do.order_key
+WHERE do.currency = 'ZAR';
+
+-- Group by currency for multi-currency analysis
+SELECT do.currency, SUM(foh.total_price)
+FROM fact_order_header foh
+JOIN dim_order do ON foh.order_key = do.order_key
+GROUP BY do.currency;
+```
+
+#### What's NOT Implemented (Backlogged)
+
+| Feature | Reason |
+|---------|--------|
+| presentmentMoney storage | Rarely needed, doubles financial columns |
+| dim_exchange_rate | Requires external rate source |
+| Normalized currency conversion | Significant complexity |
+
+**Upgrade Path:**
+If dual-currency or conversion needed later:
+1. Add `*_presentment` columns to fact tables
+2. Add `currency_code_presentment` to dim_order
+3. Or: Add dim_exchange_rate for conversion
+
+---
+
 ## Research Topics
 
 ### Active
-- [ ] Voucher/discount code tracking in Shopify
-- [ ] Exasol-specific optimizations
+- [ ] dim_time consideration (time-of-day analysis)
+- [ ] View layer for calculated measures
 
 ### Completed
 - [x] Initial system setup
@@ -951,9 +1760,19 @@ read_inventory (if tracking stock)
 - [x] Shopify Orders data model mapping
 - [x] DWH schema design (facts + dimensions)
 - [x] Competitive landscape research
+- [x] Products API research
+- [x] InventoryItem API research
+- [x] Discount/Voucher API research
+- [x] Orders API research & schema validation
+- [x] Customers API research & schema validation
+- [x] Fulfillment API research
+- [x] Inventory domain decision (dim_location added)
+- [x] Exasol-specific optimizations
+- [x] ETL tool evaluation (Custom Python + PyExasol)
+- [x] Multi-currency handling (Option B - currency in dim_order)
 
-### Future
-- [ ] ETL tool evaluation (Airbyte vs custom)
+### Future / Layer 2
+- [ ] Metafields (custom data for DYT)
 - [ ] BI platform selection
 - [ ] Data quality monitoring
 

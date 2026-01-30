@@ -353,6 +353,48 @@ DiscountCodeNode
 
 ---
 
+### Shopify MoneyBag for Multi-Currency
+
+**Confidence:** MEDIUM
+**Uses:** 1
+**Category:** shopify-api
+**Last Used:** 2026-01-30
+
+**When to use:**
+Extracting any monetary values from Shopify GraphQL API.
+
+**Structure:**
+All `*Set` financial fields return MoneyBag:
+```graphql
+totalPriceSet {
+  shopMoney {
+    amount         # Decimal string (e.g., "99.99")
+    currencyCode   # ISO code (e.g., "ZAR")
+  }
+  presentmentMoney {
+    amount         # Customer's currency amount
+    currencyCode   # Customer's currency code
+  }
+}
+```
+
+**Decision for DWH:**
+- Use `shopMoney.amount` consistently (merchant's base currency)
+- Store `currencyCode` if multi-currency reporting needed
+- Avoid deprecated scalar fields (totalPrice → totalPriceSet)
+
+**Fields affected:**
+- Order: subtotalPriceSet, totalPriceSet, totalDiscountsSet, totalTaxSet, totalShippingPriceSet, totalRefundedSet, netPaymentSet
+- LineItem: originalUnitPriceSet, originalTotalSet, discountedTotalSet, totalDiscountSet
+- InventoryItem: unitCost (uses MoneyV2, similar pattern)
+
+**Source:** Shopify GraphQL Admin API documentation
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-01-30-orders-api-research.md
+
+---
+
 ### Shopify Bulk Operations for ETL
 
 **Confidence:** LOW
@@ -496,6 +538,77 @@ ALTER SYSTEM SET REPLICATION_BORDER = 500000;
 
 ---
 
+### Shopify Plan vs Actual Pattern
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** shopify-api
+**Last Used:** 2026-01-30
+
+**When to use:**
+Understanding Shopify's data model for operations that have intent and execution phases.
+
+**Knowledge:**
+Shopify distinguishes between planned operations and actual executions:
+
+| Domain | Plan Object | Actual Object |
+|--------|-------------|---------------|
+| Fulfillment | FulfillmentOrder (what should ship) | Fulfillment (what did ship) |
+| Discounts | DiscountCode (configured offer) | DiscountApplication (applied to order) |
+
+**DWH Implication:**
+- Plan objects have lifecycle states (OPEN → IN_PROGRESS → CLOSED)
+- Actual objects have outcome states (SUCCESS, FAILURE, CANCELLED)
+- Analytics often needs both (e.g., "planned vs actual delivery time")
+
+**Source:** Shopify GraphQL Admin API documentation
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-01-30-fulfillment-api-research.md
+
+---
+
+### Shopify Deprecated Scalars → Object Pattern
+
+**Confidence:** MEDIUM
+**Uses:** 1
+**Category:** shopify-api
+**Last Used:** 2026-01-30
+
+**When to use:**
+Extracting Customer data from Shopify GraphQL API.
+
+**Knowledge:**
+Shopify has deprecated scalar fields in favor of typed object patterns:
+
+| Deprecated | New Pattern |
+|------------|-------------|
+| `email` | `defaultEmailAddress.emailAddress` |
+| `phone` | `defaultPhoneNumber.phoneNumber` |
+| `emailMarketingConsent` | `defaultEmailAddress.marketingState` |
+| `smsMarketingConsent` | `defaultPhoneNumber.marketingState` |
+| `addresses` | `defaultAddress` |
+
+**Marketing State Values:**
+- `NOT_SUBSCRIBED`, `PENDING`, `SUBSCRIBED`, `UNSUBSCRIBED`, `REDACTED`, `INVALID`
+
+**ETL Derivation:**
+```
+accepts_marketing = TRUE when marketingState IN ('SUBSCRIBED', 'PENDING')
+```
+
+**Why it matters:**
+- Deprecated fields may be removed in future API versions
+- New objects provide richer data (marketing opt-in level, validation)
+- Consistent with Shopify's pattern of moving to typed objects
+
+**Source:** Shopify GraphQL Admin API documentation
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-01-30-customers-api-research.md
+
+---
+
 ### Shopify API Migration (REST → GraphQL)
 
 **Confidence:** HIGH
@@ -553,8 +666,11 @@ ALTER SYSTEM SET REPLICATION_BORDER = 500000;
 | Mid-Session Checkpointing | LOW | 2 | process |
 | Shopify Cost Data Location | MEDIUM | 2 | shopify-api |
 | Shopify REST → GraphQL | HIGH | 1 | shopify-api |
+| Shopify Deprecated Scalars → Object | MEDIUM | 1 | shopify-api |
+| Shopify Plan vs Actual Pattern | LOW | 1 | shopify-api |
 | Shopify Inventory Levels | LOW | 1 | shopify-api |
 | Shopify Discount Code Structure | LOW | 1 | shopify-api |
+| Shopify MoneyBag Multi-Currency | MEDIUM | 1 | shopify-api |
 | Shopify Bulk Operations for ETL | LOW | 1 | shopify-api |
 | systemd Timers for Production ETL | LOW | 1 | infrastructure |
 | Exasol Star Schema Optimization | LOW | 1 | exasol |
@@ -586,6 +702,9 @@ When to promote from MEDIUM → HIGH:
 - Added systemd Timers for Production ETL pattern
 - Added Exasol Star Schema Optimization pattern
 - **Reinforced Mid-Session Checkpointing** (uses: 1→2) - applied across 4 research topics
+- Added Shopify MoneyBag Multi-Currency pattern (Orders API research)
+- Added Shopify Deprecated Scalars → Object pattern (Customer API - email, phone, marketing consent)
+- Added Shopify Plan vs Actual pattern (FulfillmentOrder vs Fulfillment)
 
 ### 2026-01-29
 - Added 6 new patterns from Shopify DWH project
