@@ -157,7 +157,209 @@ features:
   include_fulfillment_tracking: false
   include_inventory_levels: false
   multi_currency: false
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ADDITIONAL CONFIGURATION ELEMENTS
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Pivot Limits
+# Controls how many columns are generated for pivoted arrays
+pivot_limits:
+  max_payment_methods: 3        # payment_1, payment_2, payment_3 OR named columns
+  max_tax_types: 2              # tax_1, tax_2 OR named columns
+  max_discounts: 2              # discount_1, discount_2 OR named columns
+  max_shipping_lines: 1         # Usually 1, but some stores have multiple
+
+# Customer Segmentation Rules
+# Defines the business logic for customer_segment in dim_customer
+customer_segments:
+  - name: new
+    display_name: "New"
+    rule: "lifetime_order_count = 1 AND days_since_first_order <= 30"
+
+  - name: active
+    display_name: "Active"
+    rule: "days_since_last_order <= 90"
+
+  - name: at_risk
+    display_name: "At Risk"
+    rule: "days_since_last_order BETWEEN 91 AND 180"
+
+  - name: lapsed
+    display_name: "Lapsed"
+    rule: "days_since_last_order > 180"
+
+# Product Option Labels
+# Maps generic option1/option2/option3 to meaningful names
+product_options:
+  option_1:
+    name: "size"
+    display_name: "Size"
+  option_2:
+    name: "color"
+    display_name: "Color"
+  option_3:
+    name: "material"
+    display_name: "Material"
+
+# Product Type Hierarchy
+# Groups product types into categories for reporting
+product_categories:
+  - category: "Accessories"
+    display_name: "Accessories"
+    product_types: ["Phone Case", "Screen Protector", "Cable"]
+
+  - category: "Audio"
+    display_name: "Audio"
+    product_types: ["Headphones", "Earbuds", "Speakers"]
+
+# Fiscal Calendar
+# Defines fiscal year and quarter boundaries
+fiscal_calendar:
+  fiscal_year_start_month: 3      # March = fiscal year starts March 1
+  week_start_day: "Monday"        # Monday or Sunday
+
+  # Optional: Custom fiscal periods
+  # periods:
+  #   - name: "Q1"
+  #     start: "03-01"
+  #     end: "05-31"
+
+# Geographic Regions
+# Maps countries to regions for reporting aggregation
+geographic_regions:
+  - region: "South Africa"
+    display_name: "South Africa"
+    countries: ["ZA"]
+
+  - region: "Africa Other"
+    display_name: "Africa (Other)"
+    countries: ["NA", "BW", "ZW", "MZ"]
+
+  - region: "International"
+    display_name: "International"
+    countries: ["*"]  # Catch-all for unmapped
+
+# Order Status Mappings
+# Defines which Shopify statuses map to DWH flags
+order_status_mappings:
+  is_paid:
+    - "PAID"
+    - "PARTIALLY_REFUNDED"
+
+  is_fully_refunded:
+    - "REFUNDED"
+
+  is_fulfilled:
+    - "FULFILLED"
+
+  is_partially_fulfilled:
+    - "PARTIAL"
+    - "IN_PROGRESS"
+
+# Order Tags as Flags
+# Shopify tags to capture as boolean columns
+order_tag_flags:
+  - tag_pattern: "VIP"
+    column_name: "is_vip_order"
+    description: "Order has VIP tag"
+
+  - tag_pattern: "B2B"
+    column_name: "is_b2b_order"
+    description: "B2B transaction"
+
+  - tag_pattern: "GIFT"
+    column_name: "is_gift"
+    description: "Marked as gift"
+
+# Customer Tags for Segmentation
+# Tags that create customer flags/attributes
+customer_tag_flags:
+  - tag_pattern: "wholesale"
+    column_name: "is_wholesale"
+    description: "Wholesale customer"
+
+  - tag_pattern: "VIP"
+    column_name: "is_vip"
+    description: "VIP customer"
+
+# Data Retention
+retention:
+  stg_retention_days: 7           # Keep staging data for 7 days
+  fact_history_months: 60         # 5 years of fact data
+  soft_delete: true               # Soft delete vs hard delete
+
+# Schema Naming
+schema_naming:
+  staging_schema: "SHOPIFY_STG"   # Can customize prefix
+  warehouse_schema: "SHOPIFY_DWH"
+  use_customer_prefix: true       # dyt_stg, dyt_dwh vs generic
+
+# Refresh Configuration
+refresh:
+  orders_lookback_days: 3         # Re-process last 3 days of orders
+  full_refresh_day: "Sunday"      # Full dimension refresh
+  incremental_frequency: "hourly" # hourly, daily
+
+# Currency Configuration (if multi_currency = true)
+currency:
+  base_currency: "ZAR"
+  store_presentment: false        # Store customer currency amounts
+  exchange_rate_source: null      # null = no conversion, or "daily_rates" table
+
+# Denormalization Options
+# Which attributes to denormalize onto facts for faster queries
+denormalization:
+  fact_order:
+    include_customer_fields:
+      - "customer_email"
+      - "customer_name"
+      - "customer_segment"
+    include_geography_fields:
+      - "shipping_city"
+      - "shipping_province"
+      - "shipping_country"
+      - "shipping_country_code"
+
+  fact_order_line_item:
+    include_product_fields:
+      - "product_type"
+      - "vendor"
+      - "unit_cost"
+    include_order_fields:
+      - "order_created_date"
+      - "order_financial_status"
+      - "shipping_country"
 ```
+
+---
+
+## Configuration Element Summary
+
+All configurable elements organized by category:
+
+| Category | Element | Impact | Required? |
+|----------|---------|--------|-----------|
+| **Deployment** | name, store, schema, timezone | Schema names, timestamps | Yes |
+| **Pivot - Financial** | payment_methods | payment_{name}_amount columns | Yes |
+| **Pivot - Financial** | tax_types | tax_{name}_rate, tax_{name}_amount columns | Yes |
+| **Pivot - Financial** | discount_categories | discount_{name}_code, discount_{name}_amount columns | Yes |
+| **Pivot - Shipping** | shipping_carriers | shipping_{name}_amount columns | Optional |
+| **Pivot - Limits** | pivot_limits | Max columns for generic pivots | Optional |
+| **Custom Data** | custom_fields (metafields) | Custom columns on facts/dims | Optional |
+| **Business Logic** | customer_segments | customer_segment derivation rules | Recommended |
+| **Business Logic** | order_status_mappings | is_paid, is_fulfilled flag definitions | Optional (has defaults) |
+| **Categorization** | product_options | option_1 → size label mapping | Optional |
+| **Categorization** | product_categories | product_type → category grouping | Optional |
+| **Categorization** | geographic_regions | country → region mapping | Optional |
+| **Tagging** | order_tag_flags | Tags → boolean columns | Optional |
+| **Tagging** | customer_tag_flags | Tags → boolean columns | Optional |
+| **Calendar** | fiscal_calendar | Fiscal year, week start | Optional (calendar year default) |
+| **Currency** | currency | Base currency, multi-currency options | Optional |
+| **Operations** | retention | STG retention, history depth | Optional (has defaults) |
+| **Operations** | refresh | Lookback, frequency | Optional (has defaults) |
+| **Performance** | denormalization | Which fields to denormalize | Optional (has defaults) |
+| **Features** | features flags | Enable/disable optional features | Optional |
 
 ---
 
@@ -242,11 +444,183 @@ CREATE TABLE dyt_dwh.fact_order (
     is_fulfilled                    BOOLEAN,
     has_discount                    BOOLEAN,
 
+    -- ═══════════════════════════════════════════════════════════
+    -- CONFIGURED: Order Tag Flags
+    -- Generated from: order_tag_flags[]
+    -- ═══════════════════════════════════════════════════════════
+    is_vip_order                    BOOLEAN,
+    is_b2b_order                    BOOLEAN,
+    is_gift                         BOOLEAN,
+
     -- ETL
     _loaded_at                      TIMESTAMP
 )
 DISTRIBUTE BY order_key
 PARTITION BY order_date_key;
+```
+
+### dim_customer (for Dress Your Tech config)
+
+```sql
+CREATE TABLE dyt_dwh.dim_customer (
+    -- Keys
+    customer_key                    BIGINT IDENTITY PRIMARY KEY,
+    customer_id                     VARCHAR(50) NOT NULL,
+
+    -- Identity
+    email                           VARCHAR(255),
+    first_name                      VARCHAR(100),
+    last_name                       VARCHAR(100),
+    full_name                       VARCHAR(200),
+    phone                           VARCHAR(50),
+
+    -- Marketing
+    accepts_email_marketing         BOOLEAN,
+    accepts_sms_marketing           BOOLEAN,
+
+    -- Geography
+    default_country                 VARCHAR(100),
+    default_city                    VARCHAR(100),
+
+    -- ═══════════════════════════════════════════════════════════
+    -- CONFIGURED: Customer Tag Flags
+    -- Generated from: customer_tag_flags[]
+    -- ═══════════════════════════════════════════════════════════
+    is_wholesale                    BOOLEAN,
+    is_vip                          BOOLEAN,
+
+    -- Lifetime Metrics
+    lifetime_order_count            INT,
+    lifetime_revenue                DECIMAL(18,2),
+    first_order_date                DATE,
+    last_order_date                 DATE,
+    average_order_value             DECIMAL(18,2),
+    days_since_last_order           INT,
+
+    -- ═══════════════════════════════════════════════════════════
+    -- CONFIGURED: Customer Segmentation
+    -- Generated from: customer_segments[]
+    -- ═══════════════════════════════════════════════════════════
+    customer_segment                VARCHAR(20),  -- New, Active, At Risk, Lapsed
+
+    -- Standard
+    tags                            VARCHAR(1000),
+    is_tax_exempt                   BOOLEAN,
+    customer_created_date           DATE,
+
+    -- ETL
+    _loaded_at                      TIMESTAMP
+);
+```
+
+### dim_product (for Dress Your Tech config)
+
+```sql
+CREATE TABLE dyt_dwh.dim_product (
+    -- Keys
+    product_key                     BIGINT IDENTITY PRIMARY KEY,
+    product_id                      VARCHAR(50) NOT NULL,
+    variant_id                      VARCHAR(50) NOT NULL,
+
+    -- Identifiers
+    sku                             VARCHAR(100),
+    barcode                         VARCHAR(100),
+    product_title                   VARCHAR(255),
+    variant_title                   VARCHAR(255),
+    full_title                      VARCHAR(500),
+
+    -- ═══════════════════════════════════════════════════════════
+    -- CONFIGURED: Product Options (with meaningful names)
+    -- Generated from: product_options
+    -- ═══════════════════════════════════════════════════════════
+    size                            VARCHAR(255),  -- was option_1
+    color                           VARCHAR(255),  -- was option_2
+    material                        VARCHAR(255),  -- was option_3
+
+    -- ═══════════════════════════════════════════════════════════
+    -- CONFIGURED: Product Category (grouped from product_type)
+    -- Generated from: product_categories[]
+    -- ═══════════════════════════════════════════════════════════
+    product_type                    VARCHAR(255),  -- Original Shopify type
+    product_category                VARCHAR(100),  -- Grouped: Accessories, Audio, etc.
+
+    -- Vendor
+    vendor                          VARCHAR(255),
+
+    -- Pricing
+    current_price                   DECIMAL(18,2),
+    compare_at_price                DECIMAL(18,2),
+    unit_cost                       DECIMAL(18,2),
+    is_on_sale                      BOOLEAN,
+    discount_percentage             DECIMAL(5,2),
+
+    -- Attributes
+    is_taxable                      BOOLEAN,
+    requires_shipping               BOOLEAN,
+    weight_grams                    DECIMAL(10,2),
+    product_status                  VARCHAR(20),
+    tags                            VARCHAR(1000),
+    product_created_date            DATE,
+
+    -- ETL
+    _loaded_at                      TIMESTAMP
+);
+```
+
+### dim_geography (for Dress Your Tech config)
+
+```sql
+CREATE TABLE dyt_dwh.dim_geography (
+    -- Keys
+    geography_key                   BIGINT IDENTITY PRIMARY KEY,
+    address_hash                    VARCHAR(64) NOT NULL,
+
+    -- Address Components
+    city                            VARCHAR(255),
+    province                        VARCHAR(255),
+    province_code                   VARCHAR(10),
+    country                         VARCHAR(100),
+    country_code                    VARCHAR(5),
+    postal_code                     VARCHAR(20),
+
+    -- ═══════════════════════════════════════════════════════════
+    -- CONFIGURED: Geographic Region
+    -- Generated from: geographic_regions[]
+    -- ═══════════════════════════════════════════════════════════
+    region                          VARCHAR(50),  -- South Africa, Africa (Other), International
+
+    -- ETL
+    _loaded_at                      TIMESTAMP
+);
+```
+
+### dim_date (with fiscal calendar config)
+
+```sql
+CREATE TABLE dyt_dwh.dim_date (
+    -- Key
+    date_key                        INT PRIMARY KEY,  -- YYYYMMDD
+
+    -- Standard Calendar
+    full_date                       DATE,
+    year                            INT,
+    quarter                         INT,
+    month                           INT,
+    month_name                      VARCHAR(20),
+    week_of_year                    INT,
+    day_of_month                    INT,
+    day_of_week                     INT,
+    day_name                        VARCHAR(20),
+    is_weekend                      BOOLEAN,
+    is_month_end                    BOOLEAN,
+
+    -- ═══════════════════════════════════════════════════════════
+    -- CONFIGURED: Fiscal Calendar
+    -- Generated from: fiscal_calendar (start_month: 3)
+    -- ═══════════════════════════════════════════════════════════
+    fiscal_year                     INT,    -- Year starting March
+    fiscal_quarter                  INT     -- Q1 = Mar-May, Q2 = Jun-Aug, etc.
+);
 ```
 
 ---
@@ -365,6 +739,191 @@ def generate_discount_pivot_sql(config: dict) -> str:
     FROM stg_order_discount_applications
     GROUP BY order_id
     """
+```
+
+### Customer Segmentation (parameterized)
+
+```python
+def generate_customer_segment_sql(config: dict) -> str:
+    """Generate customer segment CASE statement from config."""
+
+    segments = config['customer_segments']
+
+    cases = []
+    for seg in segments:
+        name = seg['name']
+        display = seg['display_name']
+        rule = seg['rule']
+        cases.append(f"WHEN {rule} THEN '{display}'")
+
+    case_sql = '\n        '.join(cases)
+
+    return f"""
+    CASE
+        {case_sql}
+        ELSE 'Unknown'
+    END AS customer_segment
+    """
+
+# Example output for DYT config:
+"""
+CASE
+    WHEN lifetime_order_count = 1 AND days_since_first_order <= 30 THEN 'New'
+    WHEN days_since_last_order <= 90 THEN 'Active'
+    WHEN days_since_last_order BETWEEN 91 AND 180 THEN 'At Risk'
+    WHEN days_since_last_order > 180 THEN 'Lapsed'
+    ELSE 'Unknown'
+END AS customer_segment
+"""
+```
+
+### Order Tag Flags (parameterized)
+
+```python
+def generate_tag_flag_columns(config: dict) -> tuple[str, str]:
+    """Generate DDL and SQL for order tag flags."""
+
+    flags = config.get('order_tag_flags', [])
+
+    # DDL columns
+    ddl_cols = []
+    for flag in flags:
+        ddl_cols.append(f"    {flag['column_name']}  BOOLEAN,  -- {flag['description']}")
+
+    # SQL expressions
+    sql_cols = []
+    for flag in flags:
+        pattern = flag['tag_pattern']
+        col = flag['column_name']
+        sql_cols.append(f"    tags ILIKE '%{pattern}%' AS {col}")
+
+    return '\n'.join(ddl_cols), ',\n'.join(sql_cols)
+
+# Example DDL output:
+"""
+    is_vip_order        BOOLEAN,  -- Order has VIP tag
+    is_b2b_order        BOOLEAN,  -- B2B transaction
+    is_gift             BOOLEAN,  -- Marked as gift
+"""
+
+# Example SQL output:
+"""
+    tags ILIKE '%VIP%' AS is_vip_order,
+    tags ILIKE '%B2B%' AS is_b2b_order,
+    tags ILIKE '%GIFT%' AS is_gift
+"""
+```
+
+### Geographic Region Mapping (parameterized)
+
+```python
+def generate_region_case_sql(config: dict) -> str:
+    """Generate region mapping CASE statement."""
+
+    regions = config['geographic_regions']
+
+    cases = []
+    for reg in regions:
+        name = reg['display_name']
+        countries = reg['countries']
+
+        if countries == ['*']:
+            # Catch-all - must be last
+            continue
+
+        country_list = "', '".join(countries)
+        cases.append(f"WHEN country_code IN ('{country_list}') THEN '{name}'")
+
+    # Add catch-all last
+    for reg in regions:
+        if reg['countries'] == ['*']:
+            cases.append(f"ELSE '{reg['display_name']}'")
+            break
+
+    return f"""
+    CASE
+        {chr(10).join('        ' + c for c in cases)}
+    END AS region
+    """
+
+# Example output:
+"""
+CASE
+    WHEN country_code IN ('ZA') THEN 'South Africa'
+    WHEN country_code IN ('NA', 'BW', 'ZW', 'MZ') THEN 'Africa (Other)'
+    ELSE 'International'
+END AS region
+"""
+```
+
+### Product Option Label Mapping
+
+```python
+def generate_product_option_aliases(config: dict) -> str:
+    """Generate product option column aliases."""
+
+    options = config.get('product_options', {})
+
+    aliases = []
+    for i in range(1, 4):
+        key = f'option_{i}'
+        if key in options:
+            name = options[key]['name']
+            aliases.append(f"    option{i} AS {name}")
+        else:
+            aliases.append(f"    option{i}")
+
+    return ',\n'.join(aliases)
+
+# Example output:
+"""
+    option1 AS size,
+    option2 AS color,
+    option3 AS material
+"""
+```
+
+### Fiscal Calendar Generation
+
+```python
+def generate_fiscal_columns(config: dict) -> str:
+    """Generate fiscal year/quarter logic."""
+
+    calendar = config.get('fiscal_calendar', {})
+    start_month = calendar.get('fiscal_year_start_month', 1)
+
+    if start_month == 1:
+        # Calendar year = fiscal year
+        return """
+    year AS fiscal_year,
+    quarter AS fiscal_quarter
+        """
+
+    # Offset calculation
+    offset = 12 - start_month + 1
+
+    return f"""
+    CASE
+        WHEN month >= {start_month} THEN year
+        ELSE year - 1
+    END AS fiscal_year,
+    CASE
+        WHEN month >= {start_month} THEN ((month - {start_month}) / 3) + 1
+        ELSE ((month + {offset}) / 3) + 1
+    END AS fiscal_quarter
+    """
+
+# Example output for fiscal year starting March:
+"""
+CASE
+    WHEN month >= 3 THEN year
+    ELSE year - 1
+END AS fiscal_year,
+CASE
+    WHEN month >= 3 THEN ((month - 3) / 3) + 1
+    ELSE ((month + 10) / 3) + 1
+END AS fiscal_quarter
+"""
 ```
 
 ---
@@ -601,45 +1160,127 @@ def generate_config_template(shopify_client) -> dict:
 
 ## Implementation Phases
 
-### Phase 1: Static Configuration (Current Sprint)
-- [ ] Define configuration schema (YAML structure)
-- [ ] Document configuration options
+### Phase 1: Core Configuration (Foundation)
+- [ ] Define configuration schema (YAML structure) ← **Document complete**
+- [ ] Document all configuration options ← **Document complete**
 - [ ] Manual DDL based on config (no generator yet)
+- [ ] Validate YAML structure with JSON Schema
 
-### Phase 2: Schema Generator
+**Configuration scope:**
+- Deployment settings (name, store, schema, timezone)
+- Payment methods (pivot columns)
+- Tax types (pivot columns)
+- Discount categories (pivot columns)
+- Shipping carriers (pivot columns)
+
+### Phase 2: Schema Generator (DDL)
 - [ ] Build Jinja2-based DDL generator
-- [ ] Generate fact_order, fact_order_line_item
-- [ ] Add ALTER TABLE support for changes
+- [ ] Generate all DWH tables:
+  - [ ] fact_order (with all pivoted/tagged columns)
+  - [ ] fact_order_line_item
+  - [ ] dim_customer (with segments, tag flags)
+  - [ ] dim_product (with category, named options)
+  - [ ] dim_geography (with regions)
+  - [ ] dim_date (with fiscal calendar)
+  - [ ] dim_discount, dim_location, dim_time
+- [ ] Add ALTER TABLE support for config changes
+- [ ] Generate STG schema (simpler - direct from template)
 
-### Phase 3: ETL Generator
-- [ ] Parameterized pivot SQL generation
-- [ ] Configuration-driven transform logic
-- [ ] Validation against config
+### Phase 3: ETL Generator (Transform Logic)
+- [ ] Payment pivot SQL (parameterized by gateway names)
+- [ ] Tax pivot SQL (parameterized by tax titles)
+- [ ] Discount categorization SQL (parameterized by patterns)
+- [ ] Customer segment CASE logic
+- [ ] Order tag flag derivation
+- [ ] Customer tag flag derivation
+- [ ] Region mapping CASE logic
+- [ ] Product category mapping
+- [ ] Fiscal calendar logic
+- [ ] Overflow handling (4th payment → "other")
 
-### Phase 4: Discovery & Tooling
-- [ ] Auto-discovery from Shopify store
-- [ ] Config validation tool
-- [ ] Deployment automation
+### Phase 4: Discovery & Validation
+- [ ] Auto-discovery script for payment gateways
+- [ ] Auto-discovery for tax types
+- [ ] Discount code pattern analyzer
+- [ ] Config validation tool (compare config vs actual data)
+- [ ] Config drift detection (periodic re-scan)
+- [ ] Unmatched data report (what's going to "other")
+
+### Phase 5: Deployment Automation
+- [ ] New customer onboarding script
+- [ ] Schema migration generator (config diff → ALTER statements)
+- [ ] Backfill script generator
+- [ ] Config update workflow (validate → generate → deploy → backfill)
+- [ ] Rollback capability
 
 ---
 
 ## Open Questions
 
+### Deployment Model
+
 1. **Version control for configs?**
    - Git repo per customer?
    - Central config database?
+   - **Recommendation:** Git repo with customer branch or separate config directory per customer
 
-2. **Schema migration strategy?**
-   - How to handle config changes on live deployments?
-   - Backfill historical data for new columns?
-
-3. **Config validation?**
-   - Validate against Shopify store before deployment?
-   - Warn on unmatched transactions?
-
-4. **Multi-tenant vs single-tenant?**
+2. **Multi-tenant vs single-tenant?**
    - Separate schema per customer (current assumption)?
    - Shared schema with customer_id column?
+   - **Recommendation:** Single-tenant (separate schemas) for isolation and simpler queries
+
+### Schema Evolution
+
+3. **Schema migration strategy?**
+   - How to handle config changes on live deployments?
+   - Backfill historical data for new columns?
+   - **Options:**
+     - A) ALTER TABLE + backfill script
+     - B) Recreate table with new structure + data migration
+     - C) Versioned tables (fact_order_v1, fact_order_v2)
+
+4. **Adding new payment methods mid-operation?**
+   - Historical orders won't have the new column populated
+   - Should we backfill from STG? (if STG retained)
+   - **Recommendation:** Retain STG for lookback period, generate ALTER + backfill script
+
+### Validation
+
+5. **Config validation before deployment?**
+   - Validate payment gateway names exist in Shopify data
+   - Warn on unmatched transactions (data going to "other" bucket)
+   - **Recommendation:** Auto-discovery comparison report
+
+6. **Config drift detection?**
+   - What happens when Shopify store adds new payment methods?
+   - Periodic re-discovery and config update alerts?
+
+### Business Logic
+
+7. **Customer segment rule conflicts?**
+   - What if a customer matches multiple segment rules?
+   - **Current behavior:** First match wins (order matters in CASE)
+   - **Alternative:** Priority field in config
+
+8. **Tag pattern matching sensitivity?**
+   - Case sensitive or insensitive?
+   - Exact match vs contains?
+   - **Recommendation:** ILIKE (case-insensitive contains) as default, configurable
+
+### Performance
+
+9. **Denormalization trade-offs?**
+   - More denormalized = faster queries but larger tables
+   - Should denormalization be configurable per use case?
+   - **Recommendation:** Provide sensible defaults, allow override
+
+10. **Pivot column limits?**
+    - What happens when order has 4 payments but config allows 3?
+    - **Options:**
+      - A) Drop 4th payment (data loss)
+      - B) Sum into "other" column
+      - C) Fail ETL with error
+    - **Recommendation:** Option B with logging
 
 ---
 
