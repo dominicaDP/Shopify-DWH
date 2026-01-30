@@ -398,44 +398,422 @@ def extract_time_key(created_at: str) -> int:
 
 ---
 
-## GraphQL ID Handling
+## Transformations Reference
 
-Shopify GraphQL IDs are in GID format:
-```
-gid://shopify/Order/1234567890
-gid://shopify/Customer/9876543210
-```
+This section documents all data transformations required between Shopify source and Exasol destination.
 
-**ETL Transformation:**
-```python
-def extract_id(gid: str) -> str:
-    """Extract numeric ID from Shopify GID."""
-    return gid.split('/')[-1]
+### Quick Transformation Matrix
 
-# Example:
-# "gid://shopify/Order/1234567890" → "1234567890"
-```
+| Transformation | Shopify Source | Exasol Target | Function |
+|----------------|----------------|---------------|----------|
+| GID extraction | `gid://shopify/Order/123` | `123` | `extract_id()` |
+| Date key | `2026-01-30T14:35:22Z` | `20260130` | `to_date_key()` |
+| Time key | `2026-01-30T14:35:22Z` | `14` | `to_time_key()` |
+| Money extraction | `{ amount: "99.95" }` | `99.95` | `to_decimal()` |
+| Array to string | `["tag1", "tag2"]` | `"tag1,tag2"` | `join_array()` |
+| Boolean derivation | `unfulfilledQuantity: 0` | `TRUE` | Business logic |
+| Address hash | Address fields | `SHA256 hash` | `hash_address()` |
+| Null handling | `null` | Default value | `coalesce()` |
+| Marketing state | `SUBSCRIBED` | `TRUE` | `map_marketing()` |
+| Discount type | `DiscountCodeBasic` | `basic` | `map_discount_type()` |
 
 ---
 
-## MoneyBag Handling
+### 1. GID Extraction
 
-All `*Set` financial fields return MoneyBag:
+Shopify GraphQL IDs use Global ID format. Extract the numeric portion for storage.
 
-```graphql
-totalPriceSet {
-  shopMoney {
-    amount         # Use this for DWH
-    currencyCode   # Store in dim_order.currency
-  }
-  presentmentMoney {
-    amount         # Customer's currency (not stored)
-    currencyCode
-  }
+**Source Format:**
+```
+gid://shopify/Order/1234567890
+gid://shopify/Customer/9876543210
+gid://shopify/ProductVariant/44567890123
+```
+
+**Transformation:**
+```python
+def extract_id(gid: str) -> str:
+    """Extract numeric ID from Shopify GID."""
+    if gid is None:
+        return None
+    return gid.split('/')[-1]
+
+# Examples:
+# "gid://shopify/Order/1234567890" → "1234567890"
+# "gid://shopify/Customer/9876543210" → "9876543210"
+# None → None
+```
+
+**Applies to:** All `*_id` fields (order_id, customer_id, product_id, variant_id, etc.)
+
+---
+
+### 2. Date Key Transformation
+
+Convert ISO 8601 timestamps to integer date keys for dim_date lookup.
+
+**Source Format:** `2026-01-30T14:35:22Z` (ISO 8601 with timezone)
+
+**Transformation:**
+```python
+from datetime import datetime
+
+def to_date_key(iso_timestamp: str) -> int:
+    """Convert ISO timestamp to YYYYMMDD integer."""
+    if iso_timestamp is None:
+        return None
+    dt = datetime.fromisoformat(iso_timestamp.replace('Z', '+00:00'))
+    return int(dt.strftime('%Y%m%d'))
+
+# Examples:
+# "2026-01-30T14:35:22Z" → 20260130
+# "2026-12-25T00:00:00Z" → 20261225
+# None → None
+```
+
+**Applies to:** order_date_key, ship_date_key, etc.
+
+---
+
+### 3. Time Key Extraction
+
+Extract hour from timestamp for dim_time lookup.
+
+**Transformation:**
+```python
+from datetime import datetime
+
+def to_time_key(iso_timestamp: str) -> int:
+    """Extract hour (0-23) from ISO timestamp."""
+    if iso_timestamp is None:
+        return None
+    dt = datetime.fromisoformat(iso_timestamp.replace('Z', '+00:00'))
+    return dt.hour
+
+# Examples:
+# "2026-01-30T14:35:22Z" → 14
+# "2026-01-30T00:05:00Z" → 0
+# "2026-01-30T23:59:59Z" → 23
+```
+
+**Timezone Note:** Consider converting to shop timezone before extraction if needed.
+
+**Applies to:** order_time_key
+
+---
+
+### 4. Money Extraction
+
+Extract decimal amount from Shopify MoneyV2/MoneyBag objects.
+
+**Source Format (MoneyBag):**
+```json
+{
+  "shopMoney": { "amount": "99.95", "currencyCode": "ZAR" },
+  "presentmentMoney": { "amount": "5.50", "currencyCode": "USD" }
 }
 ```
 
-**ETL Rule:** Always use `shopMoney.amount` for financial fields.
+**Transformation:**
+```python
+from decimal import Decimal
+
+def to_decimal(money_bag: dict, use_shop_money: bool = True) -> Decimal:
+    """Extract amount from MoneyBag, defaulting to shopMoney."""
+    if money_bag is None:
+        return Decimal('0.00')
+
+    key = 'shopMoney' if use_shop_money else 'presentmentMoney'
+    money = money_bag.get(key, {})
+    amount_str = money.get('amount', '0.00')
+    return Decimal(amount_str)
+
+# Examples:
+# {"shopMoney": {"amount": "99.95"}} → Decimal('99.95')
+# {"shopMoney": {"amount": "0.00"}} → Decimal('0.00')
+# None → Decimal('0.00')
+```
+
+**Rule:** Always use `shopMoney` (merchant's base currency) for DWH.
+
+**Applies to:** All financial fields (unit_price, line_total, total_price, etc.)
+
+---
+
+### 5. Array to String
+
+Convert Shopify arrays to comma-separated strings for storage.
+
+**Transformation:**
+```python
+def join_array(arr: list, separator: str = ',') -> str:
+    """Join array elements into string."""
+    if arr is None or len(arr) == 0:
+        return None
+    return separator.join(str(item) for item in arr)
+
+# Examples:
+# ["electronics", "mobile", "accessories"] → "electronics,mobile,accessories"
+# ["single"] → "single"
+# [] → None
+# None → None
+```
+
+**Applies to:** tags fields on Customer, Product, Order
+
+---
+
+### 6. Boolean Derivation
+
+Derive boolean flags from source data using business logic.
+
+**Transformations:**
+```python
+def is_fulfilled(line_item: dict) -> bool:
+    """Line item is fulfilled when no unfulfilled quantity remains."""
+    return line_item.get('unfulfilledQuantity', 0) == 0
+
+def is_refunded(line_item: dict) -> bool:
+    """Line item is refunded when current quantity < original quantity."""
+    current = line_item.get('currentQuantity', 0)
+    original = line_item.get('quantity', 0)
+    return current < original
+
+def is_cancelled(order: dict) -> bool:
+    """Order is cancelled when cancelledAt timestamp exists."""
+    return order.get('cancelledAt') is not None
+
+def is_order_fulfilled(order: dict) -> bool:
+    """Order is fully fulfilled based on status."""
+    return order.get('displayFulfillmentStatus') == 'FULFILLED'
+
+def is_partially_fulfilled(order: dict) -> bool:
+    """Order is partially fulfilled based on status."""
+    return order.get('displayFulfillmentStatus') == 'PARTIALLY_FULFILLED'
+```
+
+**Applies to:** is_fulfilled, is_refunded, is_cancelled, is_partially_fulfilled
+
+---
+
+### 7. Address Hash Generation
+
+Generate deterministic hash for dim_geography deduplication.
+
+**Transformation:**
+```python
+import hashlib
+
+def hash_address(address: dict) -> str:
+    """Generate SHA256 hash from address components for deduplication."""
+    if address is None:
+        return None
+
+    # Normalize and concatenate address components
+    components = [
+        (address.get('city') or '').lower().strip(),
+        (address.get('province') or '').lower().strip(),
+        (address.get('provinceCode') or '').upper().strip(),
+        (address.get('country') or '').lower().strip(),
+        (address.get('countryCodeV2') or '').upper().strip(),
+        (address.get('zip') or '').upper().strip(),
+    ]
+
+    hash_input = '|'.join(components)
+    return hashlib.sha256(hash_input.encode('utf-8')).hexdigest()
+
+# Example:
+# {"city": "Cape Town", "province": "Western Cape", "countryCodeV2": "ZA", "zip": "8001"}
+# → "a1b2c3d4..." (64-char hex string)
+```
+
+**Applies to:** address_hash in dim_geography
+
+---
+
+### 8. Null Handling & Defaults
+
+Handle missing/null values with appropriate defaults.
+
+**Transformation:**
+```python
+def coalesce(*values, default=None):
+    """Return first non-None value, or default."""
+    for v in values:
+        if v is not None:
+            return v
+    return default
+
+# Field-specific defaults
+DEFAULT_VALUES = {
+    'discount_key': 0,           # FK to "No Discount" row
+    'customer_key': None,        # Allow NULL for guest orders
+    'quantity': 0,
+    'line_discount_amount': Decimal('0.00'),
+    'total_refunded': Decimal('0.00'),
+    'tags': None,
+    'cancel_reason': None,
+}
+
+def apply_default(field_name: str, value):
+    """Apply field-specific default if value is None."""
+    if value is not None:
+        return value
+    return DEFAULT_VALUES.get(field_name)
+```
+
+**Applies to:** All fields with potential null values
+
+---
+
+### 9. Marketing State Mapping
+
+Convert Shopify marketing consent states to boolean.
+
+**Source Values:** `SUBSCRIBED`, `PENDING`, `UNSUBSCRIBED`, `NOT_SUBSCRIBED`, `REDACTED`, `INVALID`
+
+**Transformation:**
+```python
+def map_marketing_state(state: str) -> bool:
+    """Map marketing state to boolean accepts_marketing flag."""
+    # TRUE if actively subscribed or pending confirmation
+    return state in ('SUBSCRIBED', 'PENDING')
+
+# Examples:
+# "SUBSCRIBED" → True
+# "PENDING" → True
+# "UNSUBSCRIBED" → False
+# "NOT_SUBSCRIBED" → False
+# None → False
+```
+
+**Applies to:** accepts_marketing in dim_customer
+
+---
+
+### 10. Discount Type Mapping
+
+Map Shopify discount type names to friendly codes.
+
+**Transformation:**
+```python
+def map_discount_type(typename: str) -> str:
+    """Map GraphQL __typename to friendly discount type."""
+    type_map = {
+        'DiscountCodeBasic': 'basic',
+        'DiscountCodeBxgy': 'bxgy',
+        'DiscountCodeFreeShipping': 'free_shipping',
+        'DiscountCodeApp': 'app',
+    }
+    return type_map.get(typename, 'unknown')
+
+# Examples:
+# "DiscountCodeBasic" → "basic"
+# "DiscountCodeBxgy" → "bxgy"
+# "DiscountCodeFreeShipping" → "free_shipping"
+```
+
+**Applies to:** discount_type in dim_discount
+
+---
+
+### 11. Surrogate Key Generation
+
+Generate surrogate keys for dimension and fact tables.
+
+**Strategy Options:**
+
+```python
+# Option A: Sequence-based (recommended for Exasol)
+# Use Exasol IDENTITY columns or sequences
+# CREATE TABLE dim_customer (
+#     customer_key BIGINT IDENTITY PRIMARY KEY,
+#     ...
+# )
+
+# Option B: Hash-based (for deterministic keys)
+def generate_surrogate_key(natural_key: str, table_name: str) -> int:
+    """Generate deterministic surrogate key from natural key."""
+    import hashlib
+    hash_input = f"{table_name}:{natural_key}"
+    hash_bytes = hashlib.md5(hash_input.encode()).digest()
+    # Use first 8 bytes as BIGINT
+    return int.from_bytes(hash_bytes[:8], byteorder='big', signed=True)
+
+# Option C: Lookup table (for SCD Type 1)
+# Maintain mapping table: natural_key → surrogate_key
+# Lookup existing or generate new on insert
+```
+
+**Recommendation:** Use Exasol IDENTITY columns for simplicity. Maintain lookup during ETL for FK resolution.
+
+---
+
+### 12. Tax Line Aggregation
+
+Aggregate multiple tax lines into single amount.
+
+**Source:** Array of tax lines, each with amount
+
+**Transformation:**
+```python
+from decimal import Decimal
+
+def aggregate_tax_lines(tax_lines: list) -> Decimal:
+    """Sum all tax line amounts."""
+    if not tax_lines:
+        return Decimal('0.00')
+
+    total = Decimal('0.00')
+    for tax_line in tax_lines:
+        price_set = tax_line.get('priceSet', {})
+        shop_money = price_set.get('shopMoney', {})
+        amount = Decimal(shop_money.get('amount', '0.00'))
+        total += amount
+
+    return total
+
+# Example:
+# [{"priceSet": {"shopMoney": {"amount": "10.00"}}},
+#  {"priceSet": {"shopMoney": {"amount": "5.00"}}}]
+# → Decimal('15.00')
+```
+
+**Applies to:** line_tax_amount in fact_order_line_item
+
+---
+
+### 13. Selected Options Extraction
+
+Extract variant options from selectedOptions array.
+
+**Source:**
+```json
+{
+  "selectedOptions": [
+    {"name": "Size", "value": "Large"},
+    {"name": "Color", "value": "Blue"},
+    {"name": "Material", "value": "Cotton"}
+  ]
+}
+```
+
+**Transformation:**
+```python
+def extract_options(selected_options: list) -> tuple:
+    """Extract up to 3 options from selectedOptions array."""
+    options = [None, None, None]
+    if selected_options:
+        for i, opt in enumerate(selected_options[:3]):
+            options[i] = opt.get('value')
+    return tuple(options)
+
+# Example:
+# [{"name": "Size", "value": "Large"}, {"name": "Color", "value": "Blue"}]
+# → ("Large", "Blue", None)
+```
+
+**Applies to:** option1, option2, option3 in dim_product
 
 ---
 
