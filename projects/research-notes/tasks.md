@@ -30,12 +30,20 @@
 - [ ] Set up ETL project structure on Linux server
 - [ ] Implement Shopify GraphQL client wrapper
 - [ ] Implement PyExasol loader utilities
-- [ ] Create Exasol staging schema (SHOPIFY_STG)
-- [ ] Build full product sync job (bulk operation)
-- [ ] Build incremental orders job
-- [ ] Build incremental customers job
-- [ ] Build discount codes sync job
-- [ ] Implement staging → DWH transforms
+- [ ] Create SHOPIFY_STG schema (10 staging tables per schema-layered.md)
+- [ ] Create SHOPIFY_DWH schema (facts + dims per schema-layered.md)
+- [ ] Build STG loaders:
+  - [ ] stg_orders + stg_order_line_items + stg_order_transactions + stg_order_tax_lines + stg_order_discount_applications + stg_order_shipping_lines
+  - [ ] stg_customers
+  - [ ] stg_products + stg_product_variants
+  - [ ] stg_discount_codes
+  - [ ] stg_locations
+- [ ] Build STG → DWH transforms:
+  - [ ] Pivot payments/taxes/discounts → fact_order
+  - [ ] Denormalize → fact_order_line_item
+  - [ ] Aggregate LTV metrics → dim_customer
+  - [ ] Build dim_product, dim_geography, dim_discount, dim_location
+  - [ ] Generate dim_date, dim_time
 - [ ] Configure systemd timers
 - [ ] Add error handling & monitoring
 
@@ -143,3 +151,24 @@
 - [x] Create Word documents for design review
   **Priority:** NORMAL | **Completed:** 2026-01-30
   **Created:** Overview, Schema Reference, API Mapping documents for stakeholder review
+
+- [x] Add GraphQL endpoint references to API mapping
+  **Priority:** NORMAL | **Completed:** 2026-01-30
+  **Added:** Query names, bulk operation flags, example queries for each table
+
+- [x] Add comprehensive transformations reference
+  **Priority:** HIGH | **Completed:** 2026-01-30
+  **Added:** 13 transformation types with code examples (GID extraction, date/time keys, money extraction, pivots, etc.)
+
+- [x] Add GraphQL vs REST clarification to documentation
+  **Priority:** NORMAL | **Completed:** 2026-01-30
+  **Added:** Explanation that GraphQL uses single endpoint with different query bodies
+
+- [x] Redesign schema with two-layer architecture (STG + DWH)
+  **Priority:** HIGH | **Completed:** 2026-01-30
+  **Decision:** STG mirrors Shopify API (row-based), DWH is reporting-optimized (pivoted columns, denormalized)
+  **Created:** schema-layered.md with 10 STG tables, reporting-optimized DWH facts/dims, data lineage
+
+- [x] Create layered schema Word document
+  **Priority:** NORMAL | **Completed:** 2026-01-30
+  **Created:** Shopify-DWH-Schema-Layered.docx with STG tables, DWH tables, pivot examples, lineage

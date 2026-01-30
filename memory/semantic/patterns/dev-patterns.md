@@ -481,6 +481,110 @@ journalctl -u job.service  # View logs
 
 ---
 
+### Two-Layer DWH Architecture (STG + DWH)
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** data-modeling
+**Last Used:** 2026-01-30
+
+**When to use:**
+Building a data warehouse from a transactional source (API, database) for reporting purposes.
+
+**Key Insight:**
+Don't conflate staging with data warehouse. The DWH should be designed for reporting from the start.
+
+**Wrong approach (overcomplicated):**
+```
+API → STG (raw) → DWH (normalized) → RPT (denormalized)
+```
+
+**Right approach (simpler):**
+```
+API → STG (raw, mirrors source) → DWH (reporting-optimized = IS the reporting layer)
+```
+
+**Staging Layer (STG):**
+- Mirrors source structure exactly
+- Row-based (1 row per payment, per tax line, per discount)
+- No business logic, no transformations
+- Transient - can be truncated after DWH load
+
+**Data Warehouse Layer (DWH = Reporting):**
+- Pivoted arrays to columns (payments, taxes, discounts)
+- Denormalized dimension attributes on facts
+- Pre-calculated fields (LTV, margins, flags)
+- User-friendly field names
+- Wider tables, fewer joins
+
+**Benefits:**
+- Simple architecture (no intermediate layer)
+- DWH optimized for actual use case (reporting)
+- Clear transformation boundary (raw → reporting)
+
+**Source:** Shopify DWH schema redesign
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-01-30-schema-layered-design.md
+
+---
+
+### Pivot Transformation Pattern (Rows to Columns)
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** data-modeling
+**Last Used:** 2026-01-30
+
+**When to use:**
+Transforming multi-value arrays from transactional systems into columnar format for reporting.
+
+**Examples:**
+- Multiple payment methods per order → payment_1_gateway, payment_1_amount, payment_2_gateway, payment_2_amount
+- Multiple tax lines → tax_1_name, tax_1_rate, tax_2_name, tax_2_rate
+- Multiple discounts applied → discount_1_code, discount_1_amount, discount_2_code, discount_2_amount
+
+**SQL Pattern:**
+```sql
+SELECT
+    order_id,
+    MAX(CASE WHEN rn = 1 THEN gateway END) AS payment_1_gateway,
+    MAX(CASE WHEN rn = 1 THEN amount END) AS payment_1_amount,
+    MAX(CASE WHEN rn = 2 THEN gateway END) AS payment_2_gateway,
+    MAX(CASE WHEN rn = 2 THEN amount END) AS payment_2_amount,
+    COUNT(*) AS total_payment_count
+FROM (
+    SELECT *,
+           ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY created_at) AS rn
+    FROM stg_order_transactions
+    WHERE kind = 'SALE' AND status = 'SUCCESS'
+) t
+GROUP BY order_id
+```
+
+**Benefits:**
+- Single row per entity (order) for easy reporting
+- No joins needed for common analysis
+- Self-documenting column names
+- Columnar DB optimized (Exasol, Redshift, BigQuery)
+
+**Trade-offs:**
+- Fixed number of columns (payment_1, payment_2, payment_3)
+- Need to decide max columns upfront
+- Rare edge cases (>3 payments) may need special handling
+
+**Guidance:**
+- Start with realistic max (e.g., 3 payments, 2 taxes, 2 discounts)
+- Add total_count column to flag edge cases
+- Monitor for outliers in production
+
+**Source:** Shopify DWH schema redesign
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-01-30-schema-layered-design.md
+
+---
+
 ### Exasol Star Schema Optimization
 
 **Confidence:** LOW
@@ -658,8 +762,10 @@ accepts_marketing = TRUE when marketingState IN ('SUBSCRIBED', 'PENDING')
 
 | Pattern | Confidence | Uses | Category |
 |---------|------------|------|----------|
-| Two-Layer Architecture | LOW | 1 | architecture |
+| Two-Layer Architecture (Generic + Custom) | LOW | 1 | architecture |
+| Two-Layer DWH Architecture (STG + DWH) | LOW | 1 | data-modeling |
 | Star Schema for Single Source | LOW | 1 | data-modeling |
+| Pivot Transformation (Rows to Columns) | LOW | 1 | data-modeling |
 | Variant-Level Grain | LOW | 1 | data-modeling |
 | Validate Schema Against API | LOW | 1 | process |
 | Check API Lifecycle First | LOW | 1 | process |
@@ -693,6 +799,13 @@ When to promote from MEDIUM → HIGH:
 ---
 
 ## Pattern Review Log
+
+### 2026-01-30 (Evening)
+- Added **Two-Layer DWH Architecture (STG + DWH)** pattern - key insight: don't conflate staging with warehouse
+- Added **Pivot Transformation (Rows to Columns)** pattern - payments, taxes, discounts as columns
+- Redesigned Shopify DWH schema with reporting-first mindset
+- Created schema-layered.md with 10 STG tables + optimized DWH tables
+- Updated pattern index with new data-modeling patterns
 
 ### 2026-01-30
 - Updated Shopify Cost Data Location pattern with GraphQL details (uses: 2)
