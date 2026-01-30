@@ -35,6 +35,7 @@ Complete field mapping from Shopify GraphQL Admin API to DWH schema.
 | product_key | lineItem.variant.id | BIGINT | FK lookup from variant_id |
 | customer_key | order.customer.id | BIGINT | FK lookup, nullable for guests |
 | order_date_key | order.createdAt | INT | Transform to YYYYMMDD |
+| order_time_key | order.createdAt | INT | Extract hour (0-23) |
 | ship_address_key | order.shippingAddress | BIGINT | FK lookup from address hash |
 | discount_key | order.discountApplications | BIGINT | FK lookup, 0 if no discount |
 | order_id | order.id | VARCHAR(50) | Extract numeric from gid |
@@ -65,6 +66,7 @@ Complete field mapping from Shopify GraphQL Admin API to DWH schema.
 | order_key | Generated | BIGINT | Surrogate PK |
 | customer_key | customer.id | BIGINT | FK lookup |
 | order_date_key | createdAt | INT | Transform to YYYYMMDD |
+| order_time_key | createdAt | INT | Extract hour (0-23) |
 | ship_address_key | shippingAddress | BIGINT | FK lookup |
 | bill_address_key | billingAddress | BIGINT | FK lookup |
 | order_id | id | VARCHAR(50) | Extract numeric from gid |
@@ -179,17 +181,26 @@ Product → variants → inventoryItem → unitCost { amount, currencyCode }
 ## dim_discount
 
 **Type:** SCD Type 1
-**Source:** `DiscountCodeNode`, `Order.discountApplications`
+**Source:** `DiscountCodeNode`, `DiscountRedeemCode`, `Order.discountApplications`
 
 | DWH Field | Shopify API Field | Type | Notes |
 |-----------|-------------------|------|-------|
 | discount_key | Generated | BIGINT | Surrogate PK |
-| discount_code | DiscountRedeemCode.code | VARCHAR(100) | |
-| discount_type | DiscountCodeBasic/Bxgy/FreeShipping | VARCHAR(50) | Discriminator type |
+| discount_id | DiscountCodeNode.id | VARCHAR(50) | Extract numeric from gid |
+| discount_code | DiscountRedeemCode.code | VARCHAR(100) | The actual code |
+| title | codeDiscount.title | VARCHAR(255) | Human-readable name |
+| discount_type | codeDiscount.__typename | VARCHAR(50) | basic, bxgy, free_shipping, app |
+| status | codeDiscount.status | VARCHAR(20) | ACTIVE, EXPIRED, SCHEDULED |
 | value | customerGets.value.amount OR .percentage | DECIMAL(18,2) | |
 | value_type | MoneyV2 vs PricingPercentageValue | VARCHAR(20) | fixed_amount or percentage |
 | target_type | DiscountApplication.targetType | VARCHAR(50) | LINE_ITEM or SHIPPING_LINE |
 | allocation_method | DiscountApplication.allocationMethod | VARCHAR(20) | ACROSS, EACH, ONE |
+| starts_at | codeDiscount.startsAt | TIMESTAMP | |
+| ends_at | codeDiscount.endsAt | TIMESTAMP | |
+| usage_limit | codeDiscount.usageLimit | INT | NULL = unlimited |
+| usage_count | DiscountRedeemCode.asyncUsageCount | INT | Updated asynchronously |
+| applies_once_per_customer | codeDiscount.appliesOncePerCustomer | BOOLEAN | |
+| created_at | codeDiscount.createdAt | TIMESTAMP | |
 | _loaded_at | ETL timestamp | TIMESTAMP | |
 
 **Discount Code Types:**
@@ -197,6 +208,82 @@ Product → variants → inventoryItem → unitCost { amount, currencyCode }
 - `DiscountCodeBxgy` - Buy X Get Y
 - `DiscountCodeFreeShipping` - Free shipping
 - `DiscountCodeApp` - App-defined
+
+**Type Mapping:**
+```python
+def map_discount_type(typename: str) -> str:
+    return {
+        'DiscountCodeBasic': 'basic',
+        'DiscountCodeBxgy': 'bxgy',
+        'DiscountCodeFreeShipping': 'free_shipping',
+        'DiscountCodeApp': 'app'
+    }.get(typename, 'unknown')
+```
+
+**ETL Query Example:**
+```graphql
+query {
+  codeDiscountNodes(first: 100) {
+    nodes {
+      id
+      codeDiscount {
+        ... on DiscountCodeBasic {
+          __typename
+          title
+          status
+          startsAt
+          endsAt
+          usageLimit
+          appliesOncePerCustomer
+          createdAt
+          codes(first: 10) {
+            nodes {
+              code
+              asyncUsageCount
+            }
+          }
+          customerGets {
+            value {
+              ... on MoneyV2 { amount currencyCode }
+              ... on PricingPercentageValue { percentage }
+            }
+          }
+        }
+        ... on DiscountCodeBxgy {
+          __typename
+          title
+          status
+          startsAt
+          endsAt
+          usageLimit
+          createdAt
+          codes(first: 10) {
+            nodes {
+              code
+              asyncUsageCount
+            }
+          }
+        }
+        ... on DiscountCodeFreeShipping {
+          __typename
+          title
+          status
+          startsAt
+          endsAt
+          usageLimit
+          createdAt
+          codes(first: 10) {
+            nodes {
+              code
+              asyncUsageCount
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
 
 ---
 
@@ -252,6 +339,39 @@ Product → variants → inventoryItem → unitCost { amount, currencyCode }
 **Source:** Generated (not from Shopify)
 
 Pre-populate with date range covering historical data + future buffer.
+
+---
+
+## dim_time
+
+**Type:** Conformed, pre-generated (24 rows)
+**Source:** Generated (not from Shopify)
+
+| DWH Field | Source | Type | Notes |
+|-----------|--------|------|-------|
+| time_key | Generated | INT | 0-23 (hour of day) |
+| hour_24 | Generated | INT | 0-23 |
+| hour_12 | Generated | INT | 1-12 |
+| am_pm | Generated | VARCHAR(2) | AM or PM |
+| hour_label | Generated | VARCHAR(10) | "12:00 AM", "1:00 PM"... |
+| day_part | Generated | VARCHAR(15) | Morning, Afternoon, Evening, Night |
+| day_part_order | Generated | INT | Sort order (1-4) |
+| is_business_hours | Generated | BOOLEAN | 9:00-17:00 default |
+
+**ETL Derivation:**
+```python
+def extract_time_key(created_at: str) -> int:
+    """Extract hour from ISO timestamp for dim_time lookup."""
+    # created_at format: "2026-01-30T14:35:22Z"
+    from datetime import datetime
+    dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+    return dt.hour  # Returns 0-23
+
+# Example:
+# "2026-01-30T14:35:22Z" → 14
+```
+
+**Note:** Consider timezone conversion if shop timezone differs from UTC.
 
 ---
 

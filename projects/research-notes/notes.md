@@ -527,15 +527,27 @@ query {
 | target_type | DiscountApplication.targetType | ✓ |
 | allocation_method | DiscountApplication.allocationMethod | ✓ |
 
-**Potential Additions:**
-| Field | Source | Priority |
-|-------|--------|----------|
-| title | DiscountCodeBasic.title | MEDIUM |
-| starts_at | DiscountCodeBasic.startsAt | LOW |
-| ends_at | DiscountCodeBasic.endsAt | LOW |
-| usage_limit | DiscountCodeBasic.usageLimit | MEDIUM |
-| usage_count | asyncUsageCount | HIGH (for redemption tracking) |
-| applies_once_per_customer | Boolean | LOW |
+**Schema Enhancements (2026-01-30):**
+
+All potential additions implemented:
+
+| Field | Source | Status |
+|-------|--------|--------|
+| discount_id | DiscountCodeNode.id | ✓ Added |
+| title | codeDiscount.title | ✓ Added |
+| status | codeDiscount.status | ✓ Added |
+| starts_at | codeDiscount.startsAt | ✓ Added |
+| ends_at | codeDiscount.endsAt | ✓ Added |
+| usage_limit | codeDiscount.usageLimit | ✓ Added |
+| usage_count | asyncUsageCount | ✓ Added |
+| applies_once_per_customer | codeDiscount.appliesOncePerCustomer | ✓ Added |
+| created_at | codeDiscount.createdAt | ✓ Added |
+
+**Analytics Now Enabled:**
+- Redemption rate: `usage_count / usage_limit`
+- Active campaigns: `status = 'ACTIVE'`
+- Discount inventory: `usage_limit - usage_count`
+- Campaign performance by period
 
 **B2B2C Voucher Considerations:**
 - Shopify discount codes = your vouchers

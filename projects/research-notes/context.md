@@ -219,11 +219,12 @@ All to be included in holistic design, worked sequentially:
 
 **Dimensions:**
 - `dim_date` - Conformed date dimension
+- `dim_time` - Time-of-day analysis (24 rows)
 - `dim_customer` - End consumers
 - `dim_product` - Products at variant level
 - `dim_geography` - Shipping/billing locations
 - `dim_order` - Order attributes
-- `dim_discount` - Discount codes
+- `dim_discount` - Discount codes (enhanced with usage tracking)
 - `dim_location` - Fulfillment locations (for future use)
 
 **Finance Measures:**

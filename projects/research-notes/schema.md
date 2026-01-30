@@ -1,6 +1,6 @@
 # Shopify DWH Schema
 
-**Version:** 1.1 (Exasol-optimized)
+**Version:** 1.3 (dim_time added)
 **Last Updated:** 2026-01-30
 
 ---
@@ -18,29 +18,31 @@ Star schema design for generic Shopify DWH.
 ## Schema Diagram
 
 ```
-                    ┌─────────────┐
-                    │  dim_date   │
-                    └──────┬──────┘
-                           │
-┌─────────────┐    ┌───────┴────────┐    ┌─────────────┐
-│dim_customer │────┤                │────│ dim_product │
-└─────────────┘    │                │    └─────────────┘
-                   │ fact_order_    │
-┌─────────────┐    │  line_item     │    ┌─────────────┐
-│dim_geography│────┤                │────│ dim_discount│
-└─────────────┘    │                │    └─────────────┘
-                   └───────┬────────┘
-                           │
-                   ┌───────┴────────┐
-                   │                │
-                   │ fact_order_    │────┐
-                   │   header       │    │
-                   │                │    │
-                   └───────┬────────┘    │
-                           │             │
-                    ┌──────┴──────┐      │
-                    │  dim_order  │──────┘
-                    └─────────────┘
+              ┌─────────────┐    ┌─────────────┐
+              │  dim_date   │    │  dim_time   │
+              └──────┬──────┘    └──────┬──────┘
+                     │                  │
+                     └────────┬─────────┘
+                              │
+┌─────────────┐    ┌──────────┴─────────┐    ┌─────────────┐
+│dim_customer │────┤                    │────│ dim_product │
+└─────────────┘    │  fact_order_       │    └─────────────┘
+                   │    line_item       │
+┌─────────────┐    │                    │    ┌─────────────┐
+│dim_geography│────┤                    │────│ dim_discount│
+└─────────────┘    └──────────┬─────────┘    └─────────────┘
+                              │
+                   ┌──────────┴─────────┐
+                   │  fact_order_       │────┐
+                   │    header          │    │
+                   └──────────┬─────────┘    │
+                              │              │
+                       ┌──────┴──────┐       │
+                       │  dim_order  │───────┘
+                       └─────────────┘
+                                             ┌─────────────┐
+                                             │dim_location │
+                                             └─────────────┘
 ```
 
 ---
@@ -58,6 +60,7 @@ Star schema design for generic Shopify DWH.
 | `product_key` | BIGINT | NO | FK → dim_product |
 | `customer_key` | BIGINT | YES | FK → dim_customer |
 | `order_date_key` | INT | NO | FK → dim_date |
+| `order_time_key` | INT | NO | FK → dim_time (hour 0-23) |
 | `ship_address_key` | BIGINT | YES | FK → dim_geography |
 | `discount_key` | BIGINT | YES | FK → dim_discount |
 | `order_id` | VARCHAR(50) | NO | Shopify order ID |
@@ -87,6 +90,7 @@ Star schema design for generic Shopify DWH.
 | `order_key` | BIGINT | NO | Surrogate PK (shared with dim_order) |
 | `customer_key` | BIGINT | YES | FK → dim_customer |
 | `order_date_key` | INT | NO | FK → dim_date |
+| `order_time_key` | INT | NO | FK → dim_time (hour 0-23) |
 | `ship_address_key` | BIGINT | YES | FK → dim_geography |
 | `bill_address_key` | BIGINT | YES | FK → dim_geography |
 | `order_id` | VARCHAR(50) | NO | Shopify order ID |
@@ -130,6 +134,61 @@ Star schema design for generic Shopify DWH.
 | `is_holiday` | BOOLEAN | NO | Configurable |
 | `fiscal_year` | INT | YES | If different from calendar |
 | `fiscal_quarter` | INT | YES | If different from calendar |
+
+---
+
+### dim_time
+
+**Type:** Conformed, pre-generated (24 rows)
+
+| Column | Type | Null | Description |
+|--------|------|------|-------------|
+| `time_key` | INT | NO | PK (0-23, hour of day) |
+| `hour_24` | INT | NO | 0-23 |
+| `hour_12` | INT | NO | 1-12 |
+| `am_pm` | VARCHAR(2) | NO | AM or PM |
+| `hour_label` | VARCHAR(10) | NO | "12:00 AM", "1:00 PM"... |
+| `day_part` | VARCHAR(15) | NO | Morning, Afternoon, Evening, Night |
+| `day_part_order` | INT | NO | Sort order (1-4) |
+| `is_business_hours` | BOOLEAN | NO | 9:00-17:00 (configurable) |
+
+**Day Part Definitions:**
+- Night: 00:00-05:59 (hours 0-5)
+- Morning: 06:00-11:59 (hours 6-11)
+- Afternoon: 12:00-17:59 (hours 12-17)
+- Evening: 18:00-23:59 (hours 18-23)
+
+**Pre-populated Data:**
+```sql
+INSERT INTO dim_time (time_key, hour_24, hour_12, am_pm, hour_label, day_part, day_part_order, is_business_hours)
+VALUES
+(0,  0, 12, 'AM', '12:00 AM', 'Night',     1, FALSE),
+(1,  1,  1, 'AM',  '1:00 AM', 'Night',     1, FALSE),
+(2,  2,  2, 'AM',  '2:00 AM', 'Night',     1, FALSE),
+(3,  3,  3, 'AM',  '3:00 AM', 'Night',     1, FALSE),
+(4,  4,  4, 'AM',  '4:00 AM', 'Night',     1, FALSE),
+(5,  5,  5, 'AM',  '5:00 AM', 'Night',     1, FALSE),
+(6,  6,  6, 'AM',  '6:00 AM', 'Morning',   2, FALSE),
+(7,  7,  7, 'AM',  '7:00 AM', 'Morning',   2, FALSE),
+(8,  8,  8, 'AM',  '8:00 AM', 'Morning',   2, FALSE),
+(9,  9,  9, 'AM',  '9:00 AM', 'Morning',   2, TRUE),
+(10, 10, 10, 'AM', '10:00 AM', 'Morning',  2, TRUE),
+(11, 11, 11, 'AM', '11:00 AM', 'Morning',  2, TRUE),
+(12, 12, 12, 'PM', '12:00 PM', 'Afternoon', 3, TRUE),
+(13, 13,  1, 'PM',  '1:00 PM', 'Afternoon', 3, TRUE),
+(14, 14,  2, 'PM',  '2:00 PM', 'Afternoon', 3, TRUE),
+(15, 15,  3, 'PM',  '3:00 PM', 'Afternoon', 3, TRUE),
+(16, 16,  4, 'PM',  '4:00 PM', 'Afternoon', 3, TRUE),
+(17, 17,  5, 'PM',  '5:00 PM', 'Afternoon', 3, FALSE),
+(18, 18,  6, 'PM',  '6:00 PM', 'Evening',   4, FALSE),
+(19, 19,  7, 'PM',  '7:00 PM', 'Evening',   4, FALSE),
+(20, 20,  8, 'PM',  '8:00 PM', 'Evening',   4, FALSE),
+(21, 21,  9, 'PM',  '9:00 PM', 'Evening',   4, FALSE),
+(22, 22, 10, 'PM', '10:00 PM', 'Evening',   4, FALSE),
+(23, 23, 11, 'PM', '11:00 PM', 'Evening',   4, FALSE);
+```
+
+**Note:** Business hours default to 9:00-17:00. Adjust per store requirements.
 
 ---
 
@@ -237,15 +296,30 @@ Star schema design for generic Shopify DWH.
 | Column | Type | Null | Description |
 |--------|------|------|-------------|
 | `discount_key` | BIGINT | NO | Surrogate PK |
-| `discount_code` | VARCHAR(100) | NO | The code used |
-| `discount_type` | VARCHAR(50) | NO | fixed_amount, percentage, shipping |
+| `discount_id` | VARCHAR(50) | NO | Shopify discount code node ID |
+| `discount_code` | VARCHAR(100) | NO | The code used (e.g., "SUMMER20") |
+| `title` | VARCHAR(255) | YES | Human-readable name (e.g., "Summer Sale 20%") |
+| `discount_type` | VARCHAR(50) | NO | basic, bxgy, free_shipping, app |
+| `status` | VARCHAR(20) | NO | ACTIVE, EXPIRED, SCHEDULED |
 | `value` | DECIMAL(18,2) | NO | Amount or percentage |
 | `value_type` | VARCHAR(20) | NO | fixed_amount or percentage |
-| `target_type` | VARCHAR(50) | YES | line_item, shipping_line |
-| `allocation_method` | VARCHAR(20) | YES | across, each |
+| `target_type` | VARCHAR(50) | YES | LINE_ITEM, SHIPPING_LINE |
+| `allocation_method` | VARCHAR(20) | YES | ACROSS, EACH, ONE |
+| `starts_at` | TIMESTAMP | YES | Discount valid from |
+| `ends_at` | TIMESTAMP | YES | Discount valid until |
+| `usage_limit` | INT | YES | Max redemptions allowed (NULL = unlimited) |
+| `usage_count` | INT | NO | Times redeemed (asyncUsageCount) |
+| `applies_once_per_customer` | BOOLEAN | NO | One redemption per customer |
+| `created_at` | TIMESTAMP | YES | When discount was created |
 | `_loaded_at` | TIMESTAMP | NO | ETL load timestamp |
 
 **Note:** Row with `discount_key = 0` reserved for "No Discount" default.
+
+**Analytics Enabled:**
+- Redemption rate: `usage_count / usage_limit`
+- Active campaigns: `status = 'ACTIVE'`
+- Discount inventory: `usage_limit - usage_count`
+- Campaign period: `starts_at` to `ends_at`
 
 ---
 
@@ -432,8 +506,8 @@ For time-based comparisons, typical patterns:
 - [x] Confirm Exasol-specific data types
 - [x] Define indexes/distribution keys for Exasol
 - [x] Multi-currency handling decision
-- [ ] Consider dim_time for time-of-day analysis
-- [ ] Define view layer for calculated measures
+- [x] Add dim_time for time-of-day analysis
+- [ ] Define view layer for calculated measures (optional - can do in BI tool)
 
 ---
 
@@ -530,6 +604,7 @@ ALTER SYSTEM SET REPLICATION_BORDER = 500000;
 | Dimension | Est. Rows | Replicate? |
 |-----------|-----------|------------|
 | dim_date | ~3,650 (10 years) | ✓ Yes |
+| dim_time | 24 (fixed) | ✓ Yes |
 | dim_customer | <50,000 | ✓ Yes |
 | dim_product | <10,000 | ✓ Yes |
 | dim_geography | <10,000 | ✓ Yes |

@@ -26,7 +26,6 @@
 - [ ] Define Products domain data model
 - [ ] Define Fulfillment domain data model (fact_fulfillment - backlogged, current flags sufficient)
 - [ ] Design DYT-specific customization layer
-- [ ] Consider dim_discount schema enhancements (title, usage_limit, usage_count, dates)
 
 ### ETL Implementation
 - [ ] Set up ETL project structure on Linux server
@@ -133,3 +132,11 @@
 - [x] Consolidate generic layer documentation
   **Priority:** HIGH | **Completed:** 2026-01-30
   **Created:** README.md, api-mapping.md, implementation-guide.md
+
+- [x] Enhance dim_discount schema
+  **Priority:** NORMAL | **Completed:** 2026-01-30
+  **Added:** discount_id, title, status, starts_at, ends_at, usage_limit, usage_count, applies_once_per_customer, created_at
+
+- [x] Add dim_time for time-of-day analysis
+  **Priority:** LOW | **Completed:** 2026-01-30
+  **Added:** 24-row dimension with hour, day_part, business hours. Added order_time_key to fact tables.
