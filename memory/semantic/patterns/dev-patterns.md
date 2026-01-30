@@ -585,6 +585,51 @@ GROUP BY order_id
 
 ---
 
+### Architecture Selection: Warehouse vs Lakehouse
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** architecture
+**Last Used:** 2026-01-30
+
+**When to use:**
+Deciding between data warehouse and data lakehouse architectures for a new analytics project.
+
+**Decision Framework:**
+
+| Factor | Warehouse | Lakehouse |
+|--------|-----------|-----------|
+| Data types | Structured only | Structured + unstructured |
+| Primary use | BI/reporting | ML/AI + BI |
+| Scale | Small to large | Large to massive |
+| Team size | Any | Usually larger teams |
+| Existing infra | Leverage existing DB | Cloud-native, new stack |
+
+**Choose Warehouse when:**
+- Single source system (e.g., one SaaS platform)
+- Structured data only
+- BI/reporting is primary use case
+- Have existing columnar DB (Exasol, Redshift, Snowflake)
+- Solo developer or small team
+- Don't need ML/AI on raw data
+
+**Choose Lakehouse when:**
+- Multiple diverse sources
+- Mix of structured + unstructured data
+- ML/AI model training is a primary use case
+- Massive scale (petabytes)
+- Need to store raw data for future unknown use cases
+
+**Key Insight:**
+Lakehouse adds complexity. Don't adopt it because it's trendy - adopt it when you have problems that warehouse can't solve (usually ML on unstructured data at scale).
+
+**Source:** Shopify DWH architecture decision
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-01-30-architecture-decisions.md
+
+---
+
 ### Exasol Star Schema Optimization
 
 **Confidence:** LOW
@@ -763,6 +808,7 @@ accepts_marketing = TRUE when marketingState IN ('SUBSCRIBED', 'PENDING')
 | Pattern | Confidence | Uses | Category |
 |---------|------------|------|----------|
 | Two-Layer Architecture (Generic + Custom) | LOW | 1 | architecture |
+| Architecture Selection (Warehouse vs Lakehouse) | LOW | 1 | architecture |
 | Two-Layer DWH Architecture (STG + DWH) | LOW | 1 | data-modeling |
 | Star Schema for Single Source | LOW | 1 | data-modeling |
 | Pivot Transformation (Rows to Columns) | LOW | 1 | data-modeling |
@@ -799,6 +845,13 @@ When to promote from MEDIUM → HIGH:
 ---
 
 ## Pattern Review Log
+
+### 2026-01-30 (Evening - /learn session)
+- Added **Architecture Selection (Warehouse vs Lakehouse)** pattern - decision framework
+- Confirmed warehouse is correct choice for Shopify DWH (no unstructured data, no ML needs)
+- Key insight reinforced: "Don't adopt trendy architecture without clear problem it solves"
+- Updated brain-health metrics with actual counts (19 patterns, 10 episodic entries)
+- Created episodic: 2026-01-30-architecture-decisions.md
 
 ### 2026-01-30 (Evening)
 - Added **Two-Layer DWH Architecture (STG + DWH)** pattern - key insight: don't conflate staging with warehouse
