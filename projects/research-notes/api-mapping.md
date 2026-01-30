@@ -1,32 +1,37 @@
 # Shopify API → DWH Field Mapping
 
-**Version:** 1.0
+**Version:** 1.1
 **Last Updated:** 2026-01-30
 
 Complete field mapping from Shopify GraphQL Admin API to DWH schema.
+
+**API Base URL:** `https://{shop}.myshopify.com/admin/api/2024-01/graphql.json`
 
 ---
 
 ## Quick Reference
 
-| DWH Table | Shopify Source | API Scope |
-|-----------|----------------|-----------|
-| fact_order_line_item | Order.lineItems | read_orders |
-| fact_order_header | Order | read_orders |
-| dim_customer | Customer | read_customers |
-| dim_product | Product, ProductVariant, InventoryItem | read_products, read_inventory |
-| dim_order | Order | read_orders |
-| dim_discount | DiscountCodeNode, DiscountApplication | read_discounts |
-| dim_geography | Order.shippingAddress, Order.billingAddress | read_orders |
-| dim_location | Location | read_locations |
-| dim_date | Generated | N/A |
+| DWH Table | GraphQL Query | Shopify Object | API Scope | Bulk Support |
+|-----------|---------------|----------------|-----------|--------------|
+| fact_order_line_item | `orders` | Order → lineItems | read_orders | ✓ Yes |
+| fact_order_header | `orders` | Order | read_orders | ✓ Yes |
+| dim_customer | `customers` | Customer | read_customers | ✓ Yes |
+| dim_product | `productVariants` | ProductVariant → Product, InventoryItem | read_products, read_inventory | ✓ Yes |
+| dim_order | `orders` | Order | read_orders | ✓ Yes |
+| dim_discount | `codeDiscountNodes` | DiscountCodeNode | read_discounts | ✓ Yes |
+| dim_geography | `orders` | Order.shippingAddress, Order.billingAddress | read_orders | ✓ Yes |
+| dim_location | `locations` | Location | read_locations | ✗ No (small dataset) |
+| dim_date | N/A | Generated | N/A | N/A |
+| dim_time | N/A | Generated | N/A | N/A |
 
 ---
 
 ## fact_order_line_item
 
 **Grain:** One row per line item per order
-**Source:** `Order.lineItems`
+**GraphQL Query:** `orders` (with `lineItems` connection)
+**Bulk Operation:** Yes - recommended for full sync
+**Source Object:** `Order.lineItems`
 
 | DWH Field | Shopify API Field | Type | Notes |
 |-----------|-------------------|------|-------|
@@ -59,7 +64,9 @@ Complete field mapping from Shopify GraphQL Admin API to DWH schema.
 ## fact_order_header
 
 **Grain:** One row per order
-**Source:** `Order`
+**GraphQL Query:** `orders`
+**Bulk Operation:** Yes - recommended for full sync
+**Source Object:** `Order`
 
 | DWH Field | Shopify API Field | Type | Notes |
 |-----------|-------------------|------|-------|
@@ -90,7 +97,9 @@ Complete field mapping from Shopify GraphQL Admin API to DWH schema.
 ## dim_customer
 
 **Type:** SCD Type 1
-**Source:** `Customer`
+**GraphQL Query:** `customers`
+**Bulk Operation:** Yes - recommended for full sync
+**Source Object:** `Customer`
 
 | DWH Field | Shopify API Field | Type | Notes |
 |-----------|-------------------|------|-------|
@@ -119,7 +128,9 @@ Complete field mapping from Shopify GraphQL Admin API to DWH schema.
 ## dim_product
 
 **Type:** SCD Type 1
-**Source:** `Product`, `ProductVariant`, `InventoryItem`
+**GraphQL Query:** `productVariants` (primary) or `products` with variants connection
+**Bulk Operation:** Yes - recommended for full sync
+**Source Objects:** `ProductVariant` → `Product`, `InventoryItem`
 **Grain:** One row per variant
 
 | DWH Field | Shopify API Field | Type | Notes |
@@ -158,7 +169,9 @@ Product → variants → inventoryItem → unitCost { amount, currencyCode }
 ## dim_order
 
 **Type:** SCD Type 1
-**Source:** `Order`
+**GraphQL Query:** `orders`
+**Bulk Operation:** Yes - extracted alongside fact_order tables
+**Source Object:** `Order`
 
 | DWH Field | Shopify API Field | Type | Notes |
 |-----------|-------------------|------|-------|
@@ -181,7 +194,9 @@ Product → variants → inventoryItem → unitCost { amount, currencyCode }
 ## dim_discount
 
 **Type:** SCD Type 1
-**Source:** `DiscountCodeNode`, `DiscountRedeemCode`, `Order.discountApplications`
+**GraphQL Query:** `codeDiscountNodes`
+**Bulk Operation:** Yes - recommended for full sync
+**Source Objects:** `DiscountCodeNode` → `DiscountRedeemCode`, `Order.discountApplications`
 
 | DWH Field | Shopify API Field | Type | Notes |
 |-----------|-------------------|------|-------|
@@ -290,7 +305,9 @@ query {
 ## dim_geography
 
 **Type:** SCD Type 1
-**Source:** `Order.shippingAddress`, `Order.billingAddress`
+**GraphQL Query:** `orders` (extracted from address fields)
+**Bulk Operation:** Yes - extracted alongside order data
+**Source Objects:** `Order.shippingAddress`, `Order.billingAddress`
 
 | DWH Field | Shopify API Field | Type | Notes |
 |-----------|-------------------|------|-------|
@@ -311,7 +328,9 @@ query {
 ## dim_location
 
 **Type:** SCD Type 1
-**Source:** `Location`
+**GraphQL Query:** `locations`
+**Bulk Operation:** No - small dataset, paginated query sufficient
+**Source Object:** `Location`
 
 | DWH Field | Shopify API Field | Type | Notes |
 |-----------|-------------------|------|-------|
@@ -336,16 +355,20 @@ query {
 ## dim_date
 
 **Type:** Conformed, pre-generated
-**Source:** Generated (not from Shopify)
+**GraphQL Query:** N/A - generated locally
+**Bulk Operation:** N/A
+**Source:** ETL script generates rows
 
-Pre-populate with date range covering historical data + future buffer.
+Pre-populate with date range covering historical data + future buffer (e.g., 2020-01-01 to 2030-12-31).
 
 ---
 
 ## dim_time
 
 **Type:** Conformed, pre-generated (24 rows)
-**Source:** Generated (not from Shopify)
+**GraphQL Query:** N/A - generated locally
+**Bulk Operation:** N/A
+**Source:** ETL script generates 24 static rows (hours 0-23)
 
 | DWH Field | Source | Type | Notes |
 |-----------|--------|------|-------|
@@ -413,6 +436,148 @@ totalPriceSet {
 ```
 
 **ETL Rule:** Always use `shopMoney.amount` for financial fields.
+
+---
+
+## GraphQL Query Examples
+
+### Orders Query (for fact_order_*, dim_order, dim_geography)
+```graphql
+query GetOrders($cursor: String) {
+  orders(first: 100, after: $cursor, query: "updated_at:>2026-01-01") {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id
+      name
+      createdAt
+      processedAt
+      cancelledAt
+      closedAt
+      cancelReason
+      displayFinancialStatus
+      displayFulfillmentStatus
+      currencyCode
+      tags
+      subtotalPriceSet { shopMoney { amount currencyCode } }
+      totalPriceSet { shopMoney { amount currencyCode } }
+      totalDiscountsSet { shopMoney { amount currencyCode } }
+      totalTaxSet { shopMoney { amount currencyCode } }
+      totalShippingPriceSet { shopMoney { amount currencyCode } }
+      totalRefundedSet { shopMoney { amount currencyCode } }
+      netPaymentSet { shopMoney { amount currencyCode } }
+      customer { id }
+      shippingAddress { city province provinceCode country countryCodeV2 zip latitude longitude }
+      billingAddress { city province provinceCode country countryCodeV2 zip latitude longitude }
+      channelInformation { channelDefinition { handle } }
+      lineItems(first: 50) {
+        nodes {
+          id
+          sku
+          quantity
+          isGiftCard
+          taxable
+          currentQuantity
+          unfulfilledQuantity
+          originalUnitPriceSet { shopMoney { amount } }
+          originalTotalSet { shopMoney { amount } }
+          totalDiscountSet { shopMoney { amount } }
+          discountedTotalSet { shopMoney { amount } }
+          taxLines { priceSet { shopMoney { amount } } }
+          variant { id }
+        }
+      }
+      discountApplications(first: 10) {
+        nodes {
+          targetType
+          allocationMethod
+          value {
+            ... on MoneyV2 { amount currencyCode }
+            ... on PricingPercentageValue { percentage }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Customers Query (for dim_customer)
+```graphql
+query GetCustomers($cursor: String) {
+  customers(first: 100, after: $cursor) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id
+      firstName
+      lastName
+      createdAt
+      numberOfOrders
+      amountSpent { amount currencyCode }
+      tags
+      defaultEmailAddress { emailAddress marketingState }
+      defaultPhoneNumber { phoneNumber marketingState }
+      defaultAddress { country province city }
+    }
+  }
+}
+```
+
+### Product Variants Query (for dim_product)
+```graphql
+query GetProductVariants($cursor: String) {
+  productVariants(first: 100, after: $cursor) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      id
+      sku
+      title
+      barcode
+      price
+      compareAtPrice
+      taxable
+      requiresShipping
+      weight
+      weightUnit
+      selectedOptions { name value }
+      inventoryItem { unitCost { amount currencyCode } }
+      product {
+        id
+        title
+        productType
+        vendor
+        status
+        tags
+        createdAt
+      }
+    }
+  }
+}
+```
+
+### Locations Query (for dim_location)
+```graphql
+query GetLocations {
+  locations(first: 50) {
+    nodes {
+      id
+      name
+      isActive
+      fulfillsOnlineOrders
+      address {
+        address1
+        address2
+        city
+        province
+        provinceCode
+        country
+        countryCode
+        zip
+        phone
+      }
+    }
+  }
+}
+```
 
 ---
 
