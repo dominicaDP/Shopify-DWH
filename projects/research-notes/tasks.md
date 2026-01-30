@@ -21,11 +21,10 @@
 
 ## Backlog
 
-### Schema & Design
-- [ ] Design Finance dimension/fact structures
-- [ ] Define Products domain data model
-- [ ] Define Fulfillment domain data model (fact_fulfillment - backlogged, current flags sufficient)
-- [ ] Design DYT-specific customization layer
+### Schema & Design (Layer 2 - DYT Specific)
+- [ ] Design DYT-specific customization layer (voucher tracking, B2B2C attribution, Gamatek integration)
+- [ ] Define fact_fulfillment for carrier analytics (if needed)
+- [ ] Define fact_inventory_snapshot for stock tracking (if needed)
 
 ### ETL Implementation
 - [ ] Set up ETL project structure on Linux server
@@ -140,3 +139,7 @@
 - [x] Add dim_time for time-of-day analysis
   **Priority:** LOW | **Completed:** 2026-01-30
   **Added:** 24-row dimension with hour, day_part, business hours. Added order_time_key to fact tables.
+
+- [x] Create Word documents for design review
+  **Priority:** NORMAL | **Completed:** 2026-01-30
+  **Created:** Overview, Schema Reference, API Mapping documents for stakeholder review

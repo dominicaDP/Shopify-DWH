@@ -234,10 +234,12 @@ All to be included in holistic design, worked sequentially:
 - Averages (AOV, Units per Order)
 - Volume metrics
 
-### Still To Define
-- Inventory domain schema (API researched - dim_location + fact_inventory_level if multi-location)
-- Fulfillment domain (Gamatek integration)
-- Voucher complexity (Layer 2 / DYT-specific)
+### Layer 2 (DYT-Specific) - Not Started
+- Voucher complexity and B2B2C attribution
+- Gamatek fulfillment integration
+- Corporate client tracking
+- fact_fulfillment (carrier analytics - if needed)
+- fact_inventory_snapshot (stock levels - if needed)
 
 ### Finance Approach
 - Transaction value "as if cash"
