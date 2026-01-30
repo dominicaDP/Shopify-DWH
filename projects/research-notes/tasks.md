@@ -47,6 +47,14 @@
 - [ ] Configure systemd timers
 - [ ] Add error handling & monitoring
 
+### Productization (Configuration-Driven)
+- [ ] Define configuration schema (YAML structure) for deployment_config.yaml
+- [ ] Build schema generator (Jinja2-based DDL from config)
+- [ ] Build ETL generator (parameterized pivot SQL from config)
+- [ ] Create auto-discovery script (extract payment methods, tax types from Shopify)
+- [ ] Config validation tool
+- [ ] Deployment automation scripts
+
 ### Other
 - [ ] Market opportunity analysis
 

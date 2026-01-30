@@ -293,10 +293,12 @@ All to be included in holistic design, worked sequentially:
 
 ### Project Documentation
 - [README.md](README.md) - Project overview
-- [schema.md](schema.md) - DWH schema definition
-- [api-mapping.md](api-mapping.md) - Shopify API → DWH mapping
+- [schema-layered.md](schema-layered.md) - Two-layer schema (STG + DWH)
+- [api-mapping.md](api-mapping.md) - Shopify API → DWH mapping with transformations
+- [productization-strategy.md](productization-strategy.md) - Configuration-driven deployment
 - [implementation-guide.md](implementation-guide.md) - ETL implementation reference
 - [notes.md](notes.md) - Research notes
+- [schema.md](schema.md) - Original schema (superseded by schema-layered.md)
 
 ### External
 - **Shopify GraphQL Docs:** https://shopify.dev/docs/api/admin-graphql
