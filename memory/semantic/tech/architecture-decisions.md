@@ -1,6 +1,6 @@
 # Architecture Decisions
 
-**Last Updated:** 2026-01-29
+**Last Updated:** 2026-01-30
 
 ---
 
@@ -13,7 +13,8 @@
 | Source | Shopify Admin API | Use GraphQL (REST deprecated) |
 | Target DWH | Exasol | Columnar database |
 | Schema | Star schema | See ADR-001 |
-| ETL | TBD | Evaluating Airbyte vs custom |
+| ETL | Custom Python + PyExasol | See ADR-004 |
+| Scheduler | systemd timers | On Linux/Exasol server |
 
 ---
 
@@ -89,6 +90,39 @@ dim_product at variant level (one row per variant, not per product).
 
 ---
 
+### ADR-004: Custom Python ETL with PyExasol
+
+**Date:** 2026-01-30
+**Status:** Accepted
+**Deciders:** Dominic
+
+**Context:**
+Need ETL solution to move data from Shopify GraphQL API to Exasol. Must be cost-effective and run on existing infrastructure (Linux server hosting Exasol).
+
+**Decision:**
+Build custom Python ETL using:
+- PyExasol 2.0 for Exasol connectivity
+- Shopify GraphQL bulk operations for full loads
+- Incremental queries for updates
+- systemd timers for scheduling
+
+**Consequences:**
+- **Positive:** Zero licensing cost, full control, runs on existing infrastructure, productizable
+- **Negative:** Development effort required, maintenance responsibility
+- **Neutral:** Python 3.10+ required for PyExasol 2.0
+
+**Alternatives Considered:**
+1. Fivetran - Rejected: Cost prohibitive ($500-$10k+/mo), 40-70% price increase in 2025
+2. Airbyte Cloud - Rejected: Still adds ongoing cost, external dependency
+3. Airbyte Self-Hosted - Rejected: Heavy infrastructure (Docker/K8s), overkill for single source
+
+**Implementation Notes:**
+- Use `bulkOperationRunQuery` for full loads (async, JSONL output)
+- Use filtered queries with `updated_at` for incremental loads
+- systemd timers preferred over cron (single instance guarantee, Persistent=true)
+
+---
+
 ## Patterns Learned
 
 ### Shopify API Patterns
@@ -101,6 +135,12 @@ dim_product at variant level (one row per variant, not per product).
 ---
 
 ## Evolution Notes
+
+### 2026-01-30 - ETL Decision
+- Decided on custom Python ETL (rejected Fivetran/Airbyte due to cost)
+- Selected PyExasol for fast bulk loading
+- Selected systemd timers for scheduling
+- Documented bulk operations workflow for Shopify extraction
 
 ### 2026-01-29 - Initial Setup
 - Established star schema approach

@@ -1,6 +1,6 @@
 # Development Patterns
 
-**Last Updated:** 2026-01-29
+**Last Updated:** 2026-01-30
 
 ---
 
@@ -202,9 +202,9 @@ Starting any integration project with an external API.
 ### Mid-Session Checkpointing
 
 **Confidence:** LOW
-**Uses:** 1
+**Uses:** 2
 **Category:** process
-**Last Used:** 2026-01-29
+**Last Used:** 2026-01-30
 
 **When to use:**
 Working on research or complex tasks in Claude Code sessions that might get interrupted.
@@ -228,8 +228,21 @@ Working on research or complex tasks in Claude Code sessions that might get inte
 - Future sessions can `/recall` and continue
 - Prevents "stuck at research" loops
 
+**2026-01-30 Reinforcement:**
+Applied this pattern across 4 research topics in one session:
+- InventoryItem API → episodic + pattern + notes
+- Discount API → episodic + pattern + notes
+- ETL evaluation → episodic + pattern + ADR
+- Exasol schema → episodic + pattern + schema.md
+
+Result: Complete documentation trail, easy progress tracking, zero context loss.
+
 **Related Episodes:**
 - memory/episodic/completed-work/2026-01-29-product-api-research.md
+- memory/episodic/completed-work/2026-01-30-inventory-api-research.md
+- memory/episodic/completed-work/2026-01-30-discount-api-research.md
+- memory/episodic/completed-work/2026-01-30-etl-tooling-evaluation.md
+- memory/episodic/completed-work/2026-01-30-exasol-schema-review.md
 
 ---
 
@@ -238,25 +251,248 @@ Working on research or complex tasks in Claude Code sessions that might get inte
 ### Shopify Cost Data Location
 
 **Confidence:** MEDIUM
-**Uses:** 1
+**Uses:** 2
 **Category:** shopify-api
-**Last Used:** 2026-01-29
+**Last Used:** 2026-01-30
 
 **Knowledge:**
 Product cost (COGS) is NOT in the Product API.
 
-**Actual location:**
+**Actual location (GraphQL):**
 ```
 Product
-  └→ Variant
-       └→ inventory_item_id
-            └→ InventoryItem.cost
+  └→ variants
+       └→ inventoryItem
+            └→ unitCost { amount, currencyCode }
 ```
 
 **ETL implication:**
-Need separate API call to InventoryItem endpoint to get cost data.
+- Need to traverse ProductVariant.inventoryItem to get cost
+- unitCost is MoneyV2 type (amount string + currency code)
+- May need multi-currency handling
 
-**Source:** Shopify Admin API documentation
+**Source:** Shopify GraphQL Admin API documentation
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-01-29-product-api-research.md
+- memory/episodic/completed-work/2026-01-30-inventory-api-research.md
+
+---
+
+### Shopify Inventory Levels (Multi-Location Stock)
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** shopify-api
+**Last Used:** 2026-01-30
+
+**Knowledge:**
+Stock quantities are tracked per item per location via InventoryLevel.
+
+**Structure:**
+```
+InventoryItem
+  └→ inventoryLevels (per location)
+       └→ quantities [
+            { name: "available", quantity: X },
+            { name: "on_hand", quantity: Y },
+            { name: "committed", quantity: Z },
+            ...
+          ]
+```
+
+**Key states:** available, on_hand, committed, incoming, reserved, damaged, quality_control, safety_stock
+
+**DWH implication:**
+- If multi-location tracking needed: dim_location + fact_inventory_level
+- Consider snapshot frequency (daily? hourly?)
+- Normalized quantity states = need to pivot or store as rows
+
+**Source:** Shopify GraphQL Admin API documentation
+
+---
+
+### Shopify Discount Code Structure
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** shopify-api
+**Last Used:** 2026-01-30
+
+**Knowledge:**
+Shopify has 4 discount code types, all under DiscountCodeNode:
+
+| Type | Purpose |
+|------|---------|
+| DiscountCodeBasic | Fixed amount or % off products |
+| DiscountCodeBxgy | Buy X Get Y promotions |
+| DiscountCodeFreeShipping | Waive shipping costs |
+| DiscountCodeApp | Custom app-defined |
+
+**Key Objects:**
+- `DiscountRedeemCode` - Individual codes with `asyncUsageCount` for redemption tracking
+- `DiscountApplication` - Interface showing how discount applied to order
+- `PricingValue` - Union of MoneyV2 (fixed) or PricingPercentageValue (%)
+
+**Redemption Tracking:**
+```
+DiscountCodeNode
+  └→ codeDiscount (DiscountCodeBasic, etc.)
+       └→ codes (DiscountRedeemCode)
+            └→ asyncUsageCount (redemption count)
+```
+
+**On Orders:**
+- `discountCodes` - Array of applied codes
+- `discountApplications` - Details with allocationMethod, targetType, value
+
+**Source:** Shopify GraphQL Admin API documentation
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-01-30-discount-api-research.md
+
+---
+
+### Shopify Bulk Operations for ETL
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** shopify-api
+**Last Used:** 2026-01-30
+
+**When to use:**
+Extracting large datasets from Shopify (full product catalog, historical orders).
+
+**Workflow:**
+```
+1. Submit bulkOperationRunQuery mutation
+2. Poll or use webhook for completion
+3. Download JSONL from url field
+4. Parse line-by-line (memory efficient)
+5. Load to staging tables
+```
+
+**Constraints:**
+- Max 5 connections in query
+- Max 2 levels of nesting
+- Results expire after 7 days
+- Must complete within 10 days
+- API 2026-01+: Up to 5 concurrent operations
+
+**JSONL Output:**
+- One JSON object per line
+- Child objects have `__parentId` field
+- Stream-parseable (no memory issues)
+
+**Source:** Shopify GraphQL Admin API documentation
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-01-30-etl-tooling-evaluation.md
+
+---
+
+### systemd Timers for Production ETL
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** infrastructure
+**Last Used:** 2026-01-30
+
+**When to use:**
+Scheduling Python ETL jobs on Linux servers in production.
+
+**Why over cron:**
+- Single instance guarantee (no overlapping runs)
+- `Persistent=true` catches up on missed runs after reboot
+- Resource limits (CPUQuota, MemoryLimit)
+- journald integration for structured logging
+- EnvironmentFile for credentials
+
+**Setup:**
+Two files required:
+1. `/etc/systemd/system/job.service` - What to run
+2. `/etc/systemd/system/job.timer` - When to run
+
+**Key directives:**
+```ini
+# In .timer
+Persistent=true          # Run if missed
+RandomizedDelaySec=300   # Avoid thundering herd
+
+# In .service
+Type=oneshot             # For batch jobs
+MemoryMax=2G             # Resource limit
+```
+
+**Commands:**
+```bash
+systemctl daemon-reload
+systemctl enable job.timer
+systemctl start job.timer
+journalctl -u job.service  # View logs
+```
+
+**Source:** systemd documentation
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-01-30-etl-tooling-evaluation.md
+
+---
+
+### Exasol Star Schema Optimization
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** exasol
+**Last Used:** 2026-01-30
+
+**When to use:**
+Designing star schema for Exasol columnar database.
+
+**Key Principles:**
+
+| Principle | Implementation |
+|-----------|----------------|
+| Distribution keys | On JOIN columns (not WHERE) |
+| Partition keys | On WHERE filter columns |
+| Replication | Small dims auto-replicate (<100k rows) |
+| Indexes | Auto-created, don't create manually |
+| Data types | BIGINT/INT joins faster than VARCHAR |
+
+**Distribution Key Selection:**
+```sql
+-- Fact table: distribute on most common join column
+CREATE TABLE fact_orders (...)
+DISTRIBUTE BY customer_key;
+
+-- Dimension: distribute on PK to match fact
+CREATE TABLE dim_customer (...)
+DISTRIBUTE BY customer_key;
+```
+
+**Partition Key Selection:**
+```sql
+-- Partition on date for time-based filtering
+CREATE TABLE fact_orders (...)
+DISTRIBUTE BY customer_key
+PARTITION BY order_date_key;
+```
+
+**Replication Border:**
+```sql
+-- Increase for star schema (default 100k)
+ALTER SYSTEM SET REPLICATION_BORDER = 500000;
+```
+
+**Anti-patterns:**
+- Don't distribute on WHERE columns (disables MPP)
+- Don't create manual indexes
+- Don't join on VARCHAR columns (use surrogate keys)
+
+**Source:** Exasol Performance Best Practices documentation
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-01-30-exasol-schema-review.md
 
 ---
 
@@ -314,9 +550,14 @@ Need separate API call to InventoryItem endpoint to get cost data.
 | Variant-Level Grain | LOW | 1 | data-modeling |
 | Validate Schema Against API | LOW | 1 | process |
 | Check API Lifecycle First | LOW | 1 | process |
-| Mid-Session Checkpointing | LOW | 1 | process |
-| Shopify Cost Data Location | MEDIUM | 1 | shopify-api |
+| Mid-Session Checkpointing | LOW | 2 | process |
+| Shopify Cost Data Location | MEDIUM | 2 | shopify-api |
 | Shopify REST → GraphQL | HIGH | 1 | shopify-api |
+| Shopify Inventory Levels | LOW | 1 | shopify-api |
+| Shopify Discount Code Structure | LOW | 1 | shopify-api |
+| Shopify Bulk Operations for ETL | LOW | 1 | shopify-api |
+| systemd Timers for Production ETL | LOW | 1 | infrastructure |
+| Exasol Star Schema Optimization | LOW | 1 | exasol |
 
 ---
 
@@ -336,6 +577,15 @@ When to promote from MEDIUM → HIGH:
 ---
 
 ## Pattern Review Log
+
+### 2026-01-30
+- Updated Shopify Cost Data Location pattern with GraphQL details (uses: 2)
+- Added Shopify Inventory Levels pattern (multi-location stock tracking)
+- Added Shopify Discount Code Structure pattern (4 types, redemption tracking)
+- Added Shopify Bulk Operations for ETL pattern
+- Added systemd Timers for Production ETL pattern
+- Added Exasol Star Schema Optimization pattern
+- **Reinforced Mid-Session Checkpointing** (uses: 1→2) - applied across 4 research topics
 
 ### 2026-01-29
 - Added 6 new patterns from Shopify DWH project

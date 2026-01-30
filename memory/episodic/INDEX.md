@@ -21,6 +21,10 @@ memory/episodic/
 
 | Date | Type | Description | Project |
 |------|------|-------------|---------|
+| 2026-01-30 | optimization | Exasol schema review - distribution/partition keys | Shopify DWH |
+| 2026-01-30 | decision | ETL tooling evaluation - Custom Python + PyExasol | Shopify DWH |
+| 2026-01-30 | research | Discount/voucher API research (codes, redemptions) | Shopify DWH |
+| 2026-01-30 | research | InventoryItem API research (cost & stock data) | Shopify DWH |
 | 2026-01-29 | research | Product API research & schema update | Shopify DWH |
 
 ---

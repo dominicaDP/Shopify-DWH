@@ -3,7 +3,7 @@
 **Project Type:** Work
 **Status:** Active
 **Priority:** HIGH
-**Last Updated:** 2026-01-29
+**Last Updated:** 2026-01-30
 
 ---
 
@@ -69,8 +69,10 @@ Gamatek (Fulfillment)
 | Decision | Detail |
 |----------|--------|
 | Target Platform | Exasol (columnar) |
-| Source | Shopify Admin API |
-| Schema Type | Star schema |
+| Source | Shopify Admin API (GraphQL) |
+| Schema Type | Star schema (Exasol-optimized) |
+| ETL | Custom Python + PyExasol |
+| Scheduler | systemd timers (Linux) |
 | History | Configurable import window (parameter-driven) |
 
 ### Decision Log
@@ -101,9 +103,30 @@ Reasoning:
 - Enables product-level analysis
 - Standard approach for retail/ecommerce DWH
 
+**2026-01-30: Custom Python ETL Selected**
+
+Evaluated: Fivetran, Airbyte (Cloud/Self-hosted), Custom Python
+
+Custom Python chosen because:
+- Zero licensing cost (Fivetran $500-$10k+/mo)
+- Runs on existing infrastructure (Exasol Linux server)
+- Full control over logic and optimization
+- Productizable as part of DWH offering
+
+Stack: Python 3.10+, PyExasol 2.0, Shopify GraphQL bulk operations, systemd timers
+
+**2026-01-30: Exasol Schema Optimization**
+
+Added Exasol-specific optimizations:
+- Distribution keys on JOIN columns (fact_order_line_item → order_key)
+- Partition keys on WHERE columns (order_date_key)
+- Replication border for small dimension tables
+- Reduced VARCHAR sizing (titles 500→255)
+- DDL reference with DISTRIBUTE BY / PARTITION BY
+
 ### To Research
-- ETL/pipeline tooling options
-- Competitive landscape (existing Shopify DWH products)
+- ~~ETL/pipeline tooling options~~ ✓ Decided: Custom Python + PyExasol
+- ~~Competitive landscape~~ ✓ Gap identified for Exasol-native solution
 
 ### Design Principles
 - Scale-agnostic (current: 2-4k orders/month, design for 100x)
@@ -146,8 +169,8 @@ All to be included in holistic design, worked sequentially:
 | **Finance** | 1st | ✓ Measures defined | Revenue, discounts, transaction values |
 | **Products** | Later | ✓ Dimension defined | Mobile accessories catalog |
 | **Customers** | Later | ◐ Dimension drafted | End consumers |
-| **Inventory** | Later | ○ Pending | Stock levels, availability |
-| **Vouchers/Discounts** | Later | ◐ Dimension drafted | Codes, values, usage |
+| **Inventory** | Later | ◐ API researched | Stock levels, cost data (InventoryItem/InventoryLevel) |
+| **Vouchers/Discounts** | Later | ✓ API researched | Codes, values, usage tracking (asyncUsageCount) |
 | **Fulfillment** | Later | ○ Pending | Gamatek handoff, shipping |
 
 **Legend:** ✓ Complete | ◐ Partial | ○ Pending
@@ -174,7 +197,7 @@ All to be included in holistic design, worked sequentially:
 - Volume metrics
 
 ### Still To Define
-- Inventory domain (includes cost from InventoryItem API)
+- Inventory domain schema (API researched - dim_location + fact_inventory_level if multi-location)
 - Fulfillment domain (Gamatek integration)
 - Voucher complexity (Layer 2 / DYT-specific)
 

@@ -1,7 +1,7 @@
 # Shopify DWH Schema
 
-**Version:** 1.0 (Draft)
-**Last Updated:** 2026-01-29
+**Version:** 1.1 (Exasol-optimized)
+**Last Updated:** 2026-01-30
 
 ---
 
@@ -380,7 +380,263 @@ For time-based comparisons, typical patterns:
 
 ## Open Items
 
-- [ ] Confirm Exasol-specific data types
-- [ ] Define indexes/distribution keys for Exasol
+- [x] Confirm Exasol-specific data types
+- [x] Define indexes/distribution keys for Exasol
 - [ ] Consider dim_time for time-of-day analysis
 - [ ] Define view layer for calculated measures
+
+---
+
+## Exasol-Specific Optimizations
+
+**Last Reviewed:** 2026-01-30
+
+### Data Type Assessment
+
+| Current Type | Assessment | Recommendation |
+|--------------|------------|----------------|
+| BIGINT (surrogate keys) | ✓ Good | Efficient for joins |
+| INT (date_key) | ✓ Good | Compact, efficient |
+| VARCHAR(50) for IDs | ✓ Good | Shopify IDs ~13 chars |
+| VARCHAR(500) for titles | ⚠ Oversized | Shopify limits to 255 chars |
+| VARCHAR(1000) for tags | ✓ Reasonable | Tags can be long |
+| VARCHAR(255) for names | ✓ Standard | - |
+| DECIMAL(18,2) for money | ✓ Good | Standard precision |
+| DECIMAL(10,6) for coords | ✓ Good | 6 decimal places sufficient |
+| BOOLEAN | ✓ Good | Native Exasol type |
+| TIMESTAMP | ✓ Good | Default millisecond precision |
+
+**Recommended Changes:**
+```sql
+-- Reduce oversized VARCHARs
+dim_product.title: VARCHAR(500) → VARCHAR(255)
+dim_product.variant_title: VARCHAR(500) → VARCHAR(255)
+```
+
+### Distribution Keys
+
+**Principle:** Distribute on JOIN columns (not WHERE columns) to enable local joins.
+
+| Table | Distribution Key | Rationale |
+|-------|------------------|-----------|
+| `fact_order_line_item` | `order_key` | Most common join to dim_order/fact_order_header |
+| `fact_order_header` | `customer_key` | Common join for customer analysis |
+| `dim_customer` | `customer_key` | Match fact table distribution |
+| `dim_product` | `product_key` | Match fact table joins |
+| `dim_order` | `order_key` | Match fact table distribution |
+| `dim_geography` | (none - replicate) | Small table |
+| `dim_date` | (none - replicate) | Small table, conformed |
+| `dim_discount` | (none - replicate) | Small table |
+
+**DDL Examples:**
+```sql
+CREATE TABLE fact_order_line_item (
+    ...
+)
+DISTRIBUTE BY order_key;
+
+CREATE TABLE fact_order_header (
+    ...
+)
+DISTRIBUTE BY customer_key;
+```
+
+### Partition Keys
+
+**Principle:** Partition on WHERE filter columns for large tables.
+
+| Table | Partition Key | Rationale |
+|-------|---------------|-----------|
+| `fact_order_line_item` | `order_date_key` | Date filtering in most queries |
+| `fact_order_header` | `order_date_key` | Date filtering in most queries |
+| Dimensions | (none) | Too small to benefit |
+
+**DDL Example:**
+```sql
+CREATE TABLE fact_order_line_item (
+    ...
+)
+DISTRIBUTE BY order_key
+PARTITION BY order_date_key;
+```
+
+**Note:** Partitioning is optional at current scale (2-4k orders/month). Consider adding when:
+- Tables exceed memory capacity
+- Query performance degrades on date-filtered queries
+
+### Replication Border (Star Schema Optimization)
+
+For star schema, increase replication border so dimension tables are replicated to all nodes:
+
+```sql
+-- Check current setting
+SELECT * FROM EXA_PARAMETERS WHERE PARAMETER_NAME = 'REPLICATION_BORDER';
+
+-- Increase for star schema (default is 100,000 rows)
+ALTER SYSTEM SET REPLICATION_BORDER = 500000;
+```
+
+**Expected dimension sizes:**
+| Dimension | Est. Rows | Replicate? |
+|-----------|-----------|------------|
+| dim_date | ~3,650 (10 years) | ✓ Yes |
+| dim_customer | <50,000 | ✓ Yes |
+| dim_product | <10,000 | ✓ Yes |
+| dim_geography | <10,000 | ✓ Yes |
+| dim_order | <50,000 | ✓ Yes |
+| dim_discount | <1,000 | ✓ Yes |
+
+All dimensions well under default 100k border - will auto-replicate.
+
+### Join Best Practices
+
+| Practice | Implementation |
+|----------|----------------|
+| Use surrogate keys | ✓ All joins on BIGINT/INT keys |
+| Avoid VARCHAR joins | ✓ Natural keys stored but not joined on |
+| Matching data types | ✓ All FKs match PK types |
+| Use ON not USING | Use explicit ON clauses in multi-joins |
+
+### Index Considerations
+
+**Exasol auto-creates indexes** - do not manually create indexes.
+
+Exasol's automatic index management handles:
+- Join columns (auto-indexed when used)
+- Filter columns (auto-indexed when used)
+
+**Anti-pattern to avoid:**
+```sql
+-- DON'T DO THIS in Exasol
+CREATE INDEX idx_customer ON fact_order_line_item(customer_key);
+```
+
+### Staging Schema Considerations
+
+For ETL staging tables (SHOPIFY_STG):
+
+```sql
+-- Staging tables: no distribution/partition (simpler, faster loads)
+CREATE TABLE shopify_stg.stg_products (
+    id VARCHAR(50),
+    title VARCHAR(255),
+    ...
+)
+-- No DISTRIBUTE BY (use default round-robin for bulk loads)
+```
+
+**Load pattern:**
+1. TRUNCATE staging table
+2. Bulk INSERT/IMPORT (no distribution = faster parallel load)
+3. MERGE/INSERT into final tables (with proper distribution)
+
+---
+
+## DDL Reference
+
+### fact_order_line_item (Exasol-optimized)
+
+```sql
+CREATE OR REPLACE TABLE shopify_dwh.fact_order_line_item (
+    line_item_key       BIGINT NOT NULL,
+    order_key           BIGINT NOT NULL,
+    product_key         BIGINT NOT NULL,
+    customer_key        BIGINT,
+    order_date_key      INT NOT NULL,
+    ship_address_key    BIGINT,
+    discount_key        BIGINT,
+    order_id            VARCHAR(50) NOT NULL,
+    order_name          VARCHAR(20) NOT NULL,
+    line_item_id        VARCHAR(50) NOT NULL,
+    sku                 VARCHAR(100),
+    quantity            INT NOT NULL,
+    unit_price          DECIMAL(18,2) NOT NULL,
+    line_subtotal       DECIMAL(18,2) NOT NULL,
+    line_discount_amount DECIMAL(18,2) NOT NULL,
+    line_tax_amount     DECIMAL(18,2) NOT NULL,
+    line_total          DECIMAL(18,2) NOT NULL,
+    is_gift_card        BOOLEAN NOT NULL,
+    is_taxable          BOOLEAN NOT NULL,
+    is_fulfilled        BOOLEAN NOT NULL,
+    is_refunded         BOOLEAN NOT NULL,
+    _loaded_at          TIMESTAMP NOT NULL,
+
+    PRIMARY KEY (line_item_key)
+)
+DISTRIBUTE BY order_key
+PARTITION BY order_date_key;
+```
+
+### dim_product (Exasol-optimized)
+
+```sql
+CREATE OR REPLACE TABLE shopify_dwh.dim_product (
+    product_key         BIGINT NOT NULL,
+    product_id          VARCHAR(50) NOT NULL,
+    variant_id          VARCHAR(50) NOT NULL,
+    sku                 VARCHAR(100),
+    title               VARCHAR(255) NOT NULL,      -- Reduced from 500
+    variant_title       VARCHAR(255),                -- Reduced from 500
+    option1             VARCHAR(255),
+    option2             VARCHAR(255),
+    option3             VARCHAR(255),
+    barcode             VARCHAR(100),
+    product_type        VARCHAR(255),
+    vendor              VARCHAR(255),
+    price               DECIMAL(18,2) NOT NULL,
+    compare_at_price    DECIMAL(18,2),
+    cost                DECIMAL(18,2),
+    taxable             BOOLEAN NOT NULL,
+    requires_shipping   BOOLEAN NOT NULL,
+    weight              DECIMAL(10,2),
+    weight_unit         VARCHAR(10),
+    tags                VARCHAR(1000),
+    status              VARCHAR(20) NOT NULL,
+    created_at          TIMESTAMP,
+    _loaded_at          TIMESTAMP NOT NULL,
+
+    PRIMARY KEY (product_key)
+)
+DISTRIBUTE BY product_key;
+```
+
+---
+
+## Performance Monitoring Queries
+
+### Check Table Statistics
+
+```sql
+-- Table sizes and distribution
+SELECT
+    table_schema,
+    table_name,
+    table_rows,
+    raw_object_size / 1024 / 1024 AS size_mb,
+    distribute_key,
+    partition_key
+FROM exa_all_tables
+WHERE table_schema = 'SHOPIFY_DWH'
+ORDER BY table_rows DESC;
+```
+
+### Check Replication Border
+
+```sql
+SELECT parameter_name, parameter_value
+FROM exa_parameters
+WHERE parameter_name = 'REPLICATION_BORDER';
+```
+
+### Identify Join Performance Issues
+
+```sql
+-- Check if tables are being replicated as expected
+SELECT
+    table_name,
+    table_rows,
+    CASE WHEN table_rows < 100000 THEN 'Will replicate'
+         ELSE 'Distributed' END AS replication_status
+FROM exa_all_tables
+WHERE table_schema = 'SHOPIFY_DWH';
+```
