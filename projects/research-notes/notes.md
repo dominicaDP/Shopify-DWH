@@ -1,7 +1,7 @@
 # Notes
 
 **Project:** Shopify DWH Research
-**Last Updated:** 2026-01-30
+**Last Updated:** 2026-02-03
 
 ---
 
@@ -1759,11 +1759,347 @@ If dual-currency or conversion needed later:
 
 ---
 
+### 2026-02-03 - Market Perception of Shopify Native Reporting
+
+**Topic:** Market validation for Shopify DWH/analytics solutions
+
+**Key Finding:** Strong market demand exists beyond our specific voucher tracking use case. The base product has significant market potential.
+
+---
+
+#### Pain Points with Shopify Native Analytics
+
+**1. Data Delays & Accuracy**
+- Batch processing: 1-3 hours normally, up to 24+ hours during high traffic (BFCM, viral launches)
+- Merchants report discrepancies: "100 orders in Shopify while payment processor shows 120"
+- Attribution confusion: "Facebook claiming $10,000 in sales while Shopify attributes to 'Direct traffic'"
+
+**2. Plan-Gated Features**
+- Advanced reports only on higher Shopify plans
+- Expert quote: *"If you are running your business purely on Shopify's default analytics, you are only seeing half the picture."*
+- Even Advanced/Plus stores have limitations on custom reports
+
+**3. Scaling Problems**
+- At $10K/month: 5% discrepancy = annoying
+- At $100K/month: 5% discrepancy = $5,000 mystery revenue affecting strategy
+- Fundamental limitations become critical as stores grow
+
+**4. Missing Capabilities**
+- No bounce rate, time on page, scroll depth
+- No raw data export (API only, with limitations)
+- Only ~13 months of historical data retention
+- Isolated from paid media, CRM, ERP, marketplace systems
+- Multi-store rollups and unified customer views require external tools
+
+**5. Integration Challenges**
+- Google Analytics requires complex manual setup for Shopify eCommerce tracking
+- Discrepancies between Shopify Analytics and third-party tracking common
+- Most marketplace apps "beautify data" but don't provide actionable insights
+
+---
+
+#### Market Size & Validation
+
+**E-commerce Analytics Software Market:**
+| Metric | Value | Source |
+|--------|-------|--------|
+| Market Size (2023) | $16.8B | Verified Market Reports |
+| Projected Size (2030) | $37.5B | Verified Market Reports |
+| CAGR | 12.5% | |
+
+**Broader E-commerce Analytics Market:**
+| Metric | Value | Source |
+|--------|-------|--------|
+| Market Size (2025) | $29B | Knowledge Sourcing |
+| Projected Size (2030) | $60B | Knowledge Sourcing |
+| CAGR | 15.66% | |
+
+**Shopify Addressable Market:**
+| Metric | Value |
+|--------|-------|
+| Active Shopify websites globally | 4.82 million |
+| US Shopify stores | 2.67 million |
+| US ecommerce using Shopify | 30% |
+| Merchant-generated revenue | $1.4T+ |
+| Shopify platform revenue (2024) | $6B+ |
+
+---
+
+#### Competitor Traction (Market Proof)
+
+**Triple Whale:**
+- Raised $27.7M (NFX, Elephant VC, Shaan Puri)
+- Serves 50,000+ brands
+- Investor quote: "one of the fastest-growing and most exciting companies I've ever worked with"
+- Pricing: ~$429/month for $1M GMV brands, scaling steeply
+
+**Polar Analytics:**
+- Pricing: ~$720/month, scaling with volume
+- AI-powered analyst feature ("Ask Polar")
+- Customer testimonials citing "+20% growth"
+
+**Market Signal:** Premium pricing ($400-700+/month) proves willingness to pay for better analytics.
+
+---
+
+#### What Third-Party Tools Solve
+
+| Gap | Native Shopify | Third-Party Value |
+|-----|----------------|-------------------|
+| LTV Analysis | Superficial | Cohort-based, channel-attributed, accounting for acquisition costs |
+| Marketing Attribution | "Direct traffic" catch-all | Multi-touch, cross-channel |
+| Predictive Analytics | None | Churn prediction, ML-based forecasting |
+| Team Collaboration | Manual dashboard checks | Automated report distribution |
+| Custom Reporting | Plan-restricted | Flexible, unlimited |
+| Historical Data | ~13 months | Unlimited (warehouse-based) |
+
+**ROI Example:** Automated report distribution for 5-person team eliminates 75 minutes daily dashboard checking. At $50/hour = $27,350 annually saved.
+
+---
+
+#### Strategic Implications for Our DWH
+
+**Dual Market Opportunity:**
+
+1. **Specific Use Case (DYT/B2B2C)**
+   - Voucher redemption tracking
+   - Corporate client attribution
+   - B2B2C metrics not covered by any existing tool
+
+2. **Generic Base Product**
+   - Shopify → Exasol data warehouse
+   - First Exasol-native Shopify solution (differentiation)
+   - Custom SQL access to raw data
+   - Lower price point than Triple Whale/Polar ($400-700/mo)
+   - Mid-market appeal (price-sensitive but data-hungry merchants)
+
+**Positioning Strategy:**
+| Layer | Description | Market |
+|-------|-------------|--------|
+| Layer 1 (Generic) | Shopify DWH for Exasol | Any Shopify merchant needing data warehouse |
+| Layer 2 (DYT-specific) | Voucher/B2B2C module | DYT internal + similar B2B2C businesses |
+
+**Key Differentiators:**
+1. **Exasol-native** - No existing competitors
+2. **Raw data access** - Full SQL, not pre-built dashboards
+3. **Price competitiveness** - Below $400/mo SaaS tools
+4. **B2B2C capability** - Unique extension for voucher models
+
+---
+
+#### Sources
+
+- [ReportGenix - Shopify Analytics Issues 2025](https://reportgenix.com/shopify-analytics-issues-2025/)
+- [Putler - Issues Shopify Stores Face](https://www.putler.com/issues-shopify-stores/)
+- [Plausible - Shopify Analytics](https://plausible.io/blog/shopify-analytics)
+- [Conjura - Triple Whale Alternatives 2025](https://www.conjura.com/blog/triple-whale-alternatives-2025/)
+- [CB Insights - Triple Whale Competitors](https://www.cbinsights.com/research/triple-whale-competitors-daasity-peel-insights-polar-analytics-wicked-reports/)
+- [PRNewswire - Triple Whale Raises $27.7M](https://www.prnewswire.com/news-releases/triple-whale-raises-27-7m-to-develop-default-ecommerce-operating-system-for-shopify-brands-301510122.html)
+- [Verified Market Reports - E-commerce Analytics Software](https://www.verifiedmarketreports.com/product/e-commerce-analytics-software-market/)
+- [Knowledge Sourcing - E-commerce Analytics Market](https://www.knowledge-sourcing.com/report/global-e-commerce-analytics-market)
+- [Omnisend - Shopify Statistics 2026](https://www.omnisend.com/blog/shopify-statistics/)
+- [Improvado - Shopify Dashboard Guide](https://improvado.io/blog/shopify-dashboard)
+
+---
+
+### 2026-02-03 - Exasol Personal Edition (Game-Changer for Productization)
+
+**Topic:** New Exasol Personal edition and its impact on go-to-market strategy
+
+**Key Finding:** Exasol Personal dramatically lowers the barrier to entry for a Shopify DWH product. Users only pay for AWS infrastructure (~$20/mo), not Exasol licensing.
+
+---
+
+#### What is Exasol Personal?
+
+Released late 2025/early 2026, designed for individuals, developers, and data scientists.
+
+**Core Value Proposition:**
+- **100% free** Exasol software for single-user/personal use
+- **No feature limits** - All enterprise features included
+- **No artificial caps** - Unlimited data, unlimited nodes, unlimited memory
+- **Bring Your Own Cloud** - Currently AWS; Azure and GCP coming soon
+
+**Deployment:**
+- Uses **Exasol Launcher** CLI tool (runs on Linux, Mac, Windows)
+- Deploys to Intel-based EC2 instances in user's own AWS account
+- Can spin up distributed clusters in minutes
+
+---
+
+#### Cost Structure
+
+| Component | Cost | Notes |
+|-----------|------|-------|
+| Exasol Software | **$0** | Free for personal use |
+| AWS EC2 (t3.small) | ~$15/mo | On-demand pricing |
+| AWS EBS (30GB) | ~$2/mo | Storage volume |
+| AWS S3 (50GB) | ~$1/mo | Optional object storage |
+| Data Transfer | Free (100GB) | AWS free tier |
+| **Total** | **~$20/mo** | Basic setup |
+
+**Comparison to competitors:**
+| Solution | Monthly Cost |
+|----------|--------------|
+| Triple Whale | $429+ |
+| Polar Analytics | $720+ |
+| **Exasol Personal + our ETL** | **~$20-50** |
+
+---
+
+#### Features Included (No Gating)
+
+- Full SQL analytics at any scale
+- Distributed computing across nodes
+- Native UDF support (Python, R, Java, Lua)
+- GPU acceleration (7x speedup for AI/ML)
+- 30+ SQL dialect compatibility
+- Native dbt integration
+- Model Context Protocol support (AI-ready)
+
+---
+
+#### Strategic Implications for Shopify DWH Product
+
+**Before Exasol Personal:**
+- Target market limited to enterprises with Exasol licenses
+- High barrier to entry
+- Complex sales cycle
+
+**After Exasol Personal (IF licensing permits):**
+- **Individual merchants** can self-serve
+- **Developers/agencies** can prototype and demo freely
+- **Small teams** would need commercial Exasol license
+
+**Go-to-Market Options (Pending License Clarification):**
+
+| Tier | Target | Offering | Exasol License | Price Point |
+|------|--------|----------|----------------|-------------|
+| **Dev/Eval** | Developers, prototyping | Open-source ETL + docs | Personal (free) | Free |
+| **Solo Merchant** | Single-user businesses | ETL + dashboards | Personal (if permitted) OR commercial | $49-99/mo + AWS |
+| **Team** | Multi-user businesses | Full DWH + support | Commercial license required | $299+/mo |
+| **Enterprise** | Large/multi-store | Custom + SLA | Commercial license | Custom |
+
+**Key Insight:** Exasol Personal is valuable for **development, demos, and possibly solo merchants**, but team/commercial scenarios likely require commercial Exasol licensing.
+
+**Alternative Strategies if Personal License Too Restrictive:**
+
+1. **Partner with Exasol** - Explore reseller/OEM arrangements
+2. **Exasol SaaS** - Use managed Exasol (different pricing model)
+3. **Alternative DB** - Consider DuckDB, ClickHouse, or PostgreSQL for lower tiers
+4. **Hybrid** - Personal for dev/solo, Commercial for teams
+
+---
+
+#### Product Architecture Options
+
+**Option A: Open-Source ETL + Premium Dashboards**
+```
+Free tier:
+- Open-source Shopify → Exasol ETL
+- Self-hosted on Exasol Personal
+- Community support
+
+Paid tier:
+- Pre-built BI dashboards
+- Managed ETL service
+- Priority support
+```
+
+**Option B: Managed Service on Customer's AWS**
+```
+- We deploy and manage Exasol Personal in customer's AWS
+- They own the infrastructure
+- We provide ETL, transforms, dashboards
+- Fixed monthly fee
+```
+
+**Option C: Hybrid**
+```
+- Self-service for technical users
+- Managed service for non-technical merchants
+- Enterprise for complex requirements
+```
+
+---
+
+#### ⚠️ Licensing Considerations (CRITICAL - Requires Clarification)
+
+**What Exasol States:**
+- "Free for personal use at any scale"
+- "You can use it at home, at your studies or **at work**"
+- "Single-user edition" - limited to one user
+- "Intended for personal use and evaluation"
+
+**Ambiguous Areas:**
+| Question | Status |
+|----------|--------|
+| Can a single person use it for their employer's business analytics? | Unclear - "at work" suggests yes |
+| Can it power a commercial SaaS product? | Likely NO - "personal use" implies individual benefit |
+| Can customers use it to run their own Shopify analytics? | Possibly - if single user running their own business analytics |
+| Can we resell/bundle it? | Almost certainly NO |
+
+**Key Restriction:**
+- Single-user only - no team access without upgrade
+- This inherently limits commercial deployment scenarios
+
+**Before Productizing - MUST:**
+1. Review full EULA at [Exasol Terms & Conditions](https://www.exasol.com/terms-and-conditions/)
+2. Contact Exasol directly to clarify:
+   - Can a merchant use Personal edition for their own business analytics?
+   - What are the upgrade triggers/pricing?
+   - Partner/reseller program options?
+
+**STATUS: PARKED** - Dominic has strong Exasol connections; will clarify directly.
+
+**Likely Scenarios:**
+
+| Use Case | Likely Permitted? | Notes |
+|----------|-------------------|-------|
+| Developer building/testing ETL | ✅ Yes | Evaluation/development use |
+| Solo merchant running own analytics | ⚠️ Maybe | "At work" + single-user fits |
+| Team accessing shared dashboards | ❌ No | Violates single-user |
+| SaaS product powered by Personal | ❌ No | Commercial service, not personal |
+| Consulting engagement (your AWS) | ⚠️ Maybe | Depends on EULA interpretation |
+
+---
+
+#### Technical Considerations
+
+**Exasol Personal Constraints:**
+- Single-user license (not for teams without upgrade)
+- Bring Your Own AWS (customer manages account)
+- Intel-based EC2 only (currently)
+
+**ETL Deployment:**
+- Can run on same EC2 as Exasol or separate
+- systemd timers for scheduling (already designed)
+- PyExasol for fast bulk loading (already selected)
+
+**Scaling Path:**
+- Start with Exasol Personal (free)
+- Upgrade to Exasol Cloud or Enterprise when needed
+- Our ETL/transforms work identically
+
+---
+
+#### Sources
+
+- [Exasol Blog - Introducing Exasol Personal](https://www.exasol.com/blog/introducing-exasol-personal/)
+- [Exasol Blog - 8 Release 2025.2](https://www.exasol.com/blog/exasol-8-release-2025-2/)
+- [Exasol Docs - Editions Overview](https://docs.exasol.com/db/latest/get_started/exasol_editions.htm)
+- [Exasol Docs - AWS Deployment](https://docs.exasol.com/db/latest/get_started/cloud_platforms/aws.htm)
+
+---
+
 ## Research Topics
 
 ### Active
 - [ ] dim_time consideration (time-of-day analysis)
 - [ ] View layer for calculated measures
+- [ ] **PARKED:** Clarify Exasol Personal license terms for commercial use scenarios
+  - Dominic to discuss directly with Exasol contacts
+  - Key questions: solo merchant use, partner/reseller options, upgrade pricing
 
 ### Completed
 - [x] Initial system setup
@@ -1782,6 +2118,8 @@ If dual-currency or conversion needed later:
 - [x] Exasol-specific optimizations
 - [x] ETL tool evaluation (Custom Python + PyExasol)
 - [x] Multi-currency handling (Option B - currency in dim_order)
+- [x] Market perception research - Shopify native reporting pain points
+- [x] Exasol Personal edition research - game-changer for pricing strategy
 
 ### Future / Layer 2
 - [ ] Metafields (custom data for DYT)
@@ -1795,6 +2133,13 @@ If dual-currency or conversion needed later:
 - [ ] Create Shopify API query templates
 - [ ] Build voucher lifecycle tracking dashboard
 - [ ] Develop corporate client attribution logic
+- [ ] **Productization opportunity:** Generic Shopify-to-Exasol DWH as standalone product
+  - Market validated: $16B+ market, 12.5% CAGR
+  - Competitors pricing $400-700/mo (Triple Whale, Polar)
+  - Exasol Personal may enable lower price point for solo users (~$20-50/mo)
+  - ⚠️ **Licensing caveat:** Must clarify if Personal license permits commercial use
+  - Consider: open-source ETL (free) + premium dashboards/support (paid tiers)
+  - Alternative: Partner with Exasol or consider hybrid DB strategy for different tiers
 
 ---
 
