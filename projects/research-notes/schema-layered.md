@@ -76,6 +76,10 @@ Mirrors Shopify API structure exactly. One table per API object.
 | billing_address_json | billingAddress | TEXT | Full address JSON |
 | tags | tags | TEXT | Comma-separated tags |
 | note | note | TEXT | Order notes |
+| source_name | sourceName | VARCHAR(50) | Channel source (web, pos, mobile, etc.) |
+| landing_site | landingSite | TEXT | First URL customer landed on |
+| referring_site | referringSite | TEXT | Referring URL |
+| checkout_id | checkoutId | VARCHAR(50) | Associated checkout GID |
 | _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 ---
@@ -103,6 +107,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | is_gift_card | isGiftCard | BOOLEAN | Gift card flag |
 | taxable | taxable | BOOLEAN | Taxable flag |
 | requires_shipping | requiresShipping | BOOLEAN | Requires shipping |
+| fulfillable_quantity | fulfillableQuantity | INT | Quantity that can be fulfilled |
 | _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 ---
@@ -302,6 +307,123 @@ Mirrors Shopify API structure exactly. One table per API object.
 
 ---
 
+## stg_fulfillments
+
+**Source:** `orders` query → `Order.fulfillments` connection
+
+| Column | Shopify Field | Type | Description |
+|--------|---------------|------|-------------|
+| id | id | VARCHAR(50) | Fulfillment GID |
+| order_id | (parent order) | VARCHAR(50) | Parent order GID |
+| status | status | VARCHAR(20) | SUCCESS, PENDING, CANCELLED, ERROR, FAILURE |
+| created_at | createdAt | TIMESTAMP | Fulfillment creation time |
+| updated_at | updatedAt | TIMESTAMP | Last update time |
+| tracking_number | trackingInfo.number | VARCHAR(255) | Tracking number |
+| tracking_company | trackingInfo.company | VARCHAR(100) | Carrier name |
+| tracking_url | trackingInfo.url | TEXT | Tracking URL |
+| location_id | location.id | VARCHAR(50) | Fulfillment location GID |
+| service | service.serviceName | VARCHAR(100) | Shipping service name |
+| shipment_status | displayStatus | VARCHAR(50) | LABEL_PRINTED, LABEL_PURCHASED, etc. |
+| total_quantity | totalQuantity | INT | Total items fulfilled |
+| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+
+---
+
+## stg_fulfillment_line_items
+
+**Source:** `orders` query → `Order.fulfillments.fulfillmentLineItems` connection
+
+| Column | Shopify Field | Type | Description |
+|--------|---------------|------|-------------|
+| fulfillment_id | (parent fulfillment) | VARCHAR(50) | Parent fulfillment GID |
+| line_item_id | lineItem.id | VARCHAR(50) | Original line item GID |
+| quantity | quantity | INT | Quantity fulfilled in this shipment |
+| original_total | originalTotalSet.shopMoney.amount | DECIMAL(18,2) | Original total for fulfilled items |
+| discounted_total | discountedTotalPriceSet.shopMoney.amount | DECIMAL(18,2) | Discounted total for fulfilled items |
+| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+
+---
+
+## stg_refunds
+
+**Source:** `orders` query → `Order.refunds` connection
+
+| Column | Shopify Field | Type | Description |
+|--------|---------------|------|-------------|
+| id | id | VARCHAR(50) | Refund GID |
+| order_id | (parent order) | VARCHAR(50) | Parent order GID |
+| created_at | createdAt | TIMESTAMP | Refund creation time |
+| note | note | TEXT | Refund note/reason |
+| total_refunded | totalRefundedSet.shopMoney.amount | DECIMAL(18,2) | Total refund amount |
+| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+
+---
+
+## stg_refund_line_items
+
+**Source:** `orders` query → `Order.refunds.refundLineItems` connection
+
+| Column | Shopify Field | Type | Description |
+|--------|---------------|------|-------------|
+| refund_id | (parent refund) | VARCHAR(50) | Parent refund GID |
+| line_item_id | lineItem.id | VARCHAR(50) | Original line item GID |
+| quantity | quantity | INT | Quantity refunded |
+| restock_type | restockType | VARCHAR(20) | NO_RESTOCK, CANCEL, RETURN, LEGACY_RESTOCK |
+| location_id | location.id | VARCHAR(50) | Restock location GID |
+| subtotal_amount | subtotalSet.shopMoney.amount | DECIMAL(18,2) | Line item subtotal refunded |
+| total_tax_amount | totalTaxSet.shopMoney.amount | DECIMAL(18,2) | Tax amount refunded |
+| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+
+---
+
+## stg_inventory_levels
+
+**Source:** `inventoryLevels` query → `InventoryLevel` object
+
+| Column | Shopify Field | Type | Description |
+|--------|---------------|------|-------------|
+| inventory_item_id | item.id | VARCHAR(50) | Inventory item GID |
+| location_id | location.id | VARCHAR(50) | Location GID |
+| available | quantities.available | INT | Available to sell |
+| on_hand | quantities.on_hand | INT | Physically in stock |
+| committed | quantities.committed | INT | Reserved for orders |
+| incoming | quantities.incoming | INT | Expected from purchase orders |
+| reserved | quantities.reserved | INT | Reserved for other reasons |
+| updated_at | updatedAt | TIMESTAMP | Last update time |
+| snapshot_date | ETL | DATE | Snapshot date for historical tracking |
+| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+
+**Note:** This table stores daily snapshots for inventory trend analysis.
+
+---
+
+## stg_abandoned_checkouts
+
+**Source:** `abandonedCheckouts` query → `Checkout` object
+
+| Column | Shopify Field | Type | Description |
+|--------|---------------|------|-------------|
+| id | id | VARCHAR(50) | Checkout GID |
+| created_at | createdAt | TIMESTAMP | Checkout creation time |
+| updated_at | updatedAt | TIMESTAMP | Last update time |
+| completed_at | completedAt | TIMESTAMP | Completion time (NULL if abandoned) |
+| customer_id | customer.id | VARCHAR(50) | Customer GID (if logged in) |
+| email | email | VARCHAR(255) | Customer email |
+| phone | phone | VARCHAR(50) | Customer phone |
+| subtotal_price | subtotalPriceSet.shopMoney.amount | DECIMAL(18,2) | Subtotal |
+| total_tax | totalTaxSet.shopMoney.amount | DECIMAL(18,2) | Tax amount |
+| total_price | totalPriceSet.shopMoney.amount | DECIMAL(18,2) | Total price |
+| currency_code | currencyCode | VARCHAR(5) | Currency |
+| abandoned_checkout_url | abandonedCheckoutUrl | TEXT | Recovery URL |
+| line_items_count | lineItems.edges.length | INT | Number of line items |
+| line_items_json | lineItems | TEXT | Line items JSON for analysis |
+| shipping_address_json | shippingAddress | TEXT | Shipping address JSON |
+| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+
+**Note:** Only checkouts where `completedAt IS NULL` are truly abandoned.
+
+---
+
 # DATA WAREHOUSE SCHEMA (SHOPIFY_DWH)
 
 Reporting-optimized with pivoted arrays, denormalized attributes, and user-friendly names.
@@ -374,7 +496,28 @@ Reporting-optimized with pivoted arrays, denormalized attributes, and user-frien
 | average_order_value | DECIMAL(18,2) | lifetime_revenue / lifetime_order_count | AOV |
 | days_since_last_order | INT | CURRENT_DATE - last_order_date | Recency |
 | customer_segment | VARCHAR(20) | Business logic | New/Active/At-Risk/Lapsed |
+| **RFM Segmentation** |
+| rfm_recency_score | INT | Recency quintile (1-5) | 5 = most recent |
+| rfm_frequency_score | INT | Frequency quintile (1-5) | 5 = most frequent |
+| rfm_monetary_score | INT | Monetary quintile (1-5) | 5 = highest spend |
+| rfm_combined_score | INT | R + F + M (3-15) | Overall RFM score |
+| rfm_segment | VARCHAR(30) | RFM business logic | Champions, Loyal, At Risk, etc. |
 | _loaded_at | TIMESTAMP | ETL | Load timestamp |
+
+**RFM Segment Definitions:**
+| Segment | R Score | F Score | M Score | Description |
+|---------|---------|---------|---------|-------------|
+| Champions | 5 | 5 | 5 | Best customers, recent high-value frequent buyers |
+| Loyal | 4-5 | 4-5 | 3-5 | Consistent valuable customers |
+| Potential Loyalists | 4-5 | 2-3 | 2-3 | Recent customers with growth potential |
+| New Customers | 5 | 1 | 1-3 | Just acquired, opportunity to nurture |
+| Promising | 3-4 | 1-2 | 1-2 | Recent but low engagement |
+| Needs Attention | 3 | 3 | 3 | Average across all dimensions |
+| About to Sleep | 2-3 | 2-3 | 2-3 | Declining engagement |
+| At Risk | 1-2 | 4-5 | 4-5 | Were valuable, now inactive |
+| Can't Lose | 1-2 | 4-5 | 5 | Highest value but churning |
+| Hibernating | 1-2 | 1-2 | 1-2 | Low value, inactive |
+| Lost | 1 | 1 | 1 | No recent activity, low historical value |
 
 ---
 
@@ -493,6 +636,11 @@ Reporting-optimized with pivoted arrays, denormalized attributes, and user-frien
 | order_id | VARCHAR(50) | stg_orders.id → extract_id() | Shopify order ID |
 | order_number | VARCHAR(20) | stg_orders.name | Display order # |
 | order_email | VARCHAR(255) | stg_orders.email | Customer email |
+| checkout_id | VARCHAR(50) | stg_orders.checkout_id → extract_id() | Associated checkout ID |
+| **Channel & Attribution** |
+| source_name | VARCHAR(50) | stg_orders.source_name | Channel (web, pos, mobile) |
+| landing_site | TEXT | stg_orders.landing_site | First URL landed |
+| referring_site | TEXT | stg_orders.referring_site | Referrer URL |
 | **Timestamps** |
 | order_created_at | TIMESTAMP | stg_orders.created_at | Order creation |
 | order_processed_at | TIMESTAMP | stg_orders.processed_at | Payment processed |
@@ -626,6 +774,160 @@ Reporting-optimized with pivoted arrays, denormalized attributes, and user-frien
 
 ---
 
+## fact_fulfillment
+
+**Source:** stg_fulfillments + stg_fulfillment_line_items with denormalized attributes
+
+**Grain:** One row per fulfillment (shipment level)
+
+| Column | Type | Source/Transformation | Description |
+|--------|------|----------------------|-------------|
+| **Keys** |
+| fulfillment_key | BIGINT | IDENTITY | Surrogate key |
+| order_key | BIGINT | order_id → lookup | FK to fact_order |
+| order_date_key | INT | From parent order | FK to dim_date |
+| fulfillment_date_key | INT | stg_fulfillments.created_at → to_date_key() | FK to dim_date |
+| fulfillment_time_key | INT | stg_fulfillments.created_at → to_time_key() | FK to dim_time |
+| location_key | BIGINT | stg_fulfillments.location_id → lookup | FK to dim_location |
+| customer_key | BIGINT | From parent order | FK to dim_customer |
+| **Fulfillment Identifiers** |
+| fulfillment_id | VARCHAR(50) | stg_fulfillments.id → extract_id() | Shopify fulfillment ID |
+| order_id | VARCHAR(50) | stg_fulfillments.order_id → extract_id() | Shopify order ID |
+| order_number | VARCHAR(20) | From fact_order | Display order # |
+| **Timestamps** |
+| order_created_at | TIMESTAMP | From fact_order | Order creation time |
+| fulfillment_created_at | TIMESTAMP | stg_fulfillments.created_at | Fulfillment creation |
+| fulfillment_updated_at | TIMESTAMP | stg_fulfillments.updated_at | Last update |
+| **Timing Metrics** |
+| fulfillment_time_hours | DECIMAL(10,2) | (fulfillment_created_at - order_created_at) / 3600 | Hours to fulfill |
+| fulfillment_time_days | DECIMAL(10,2) | fulfillment_time_hours / 24 | Days to fulfill |
+| **Tracking** |
+| tracking_number | VARCHAR(255) | stg_fulfillments.tracking_number | Tracking number |
+| tracking_company | VARCHAR(100) | stg_fulfillments.tracking_company | Carrier name |
+| tracking_url | TEXT | stg_fulfillments.tracking_url | Tracking URL |
+| shipping_service | VARCHAR(100) | stg_fulfillments.service | Shipping service |
+| **Status** |
+| fulfillment_status | VARCHAR(20) | stg_fulfillments.status | SUCCESS, PENDING, etc. |
+| shipment_status | VARCHAR(50) | stg_fulfillments.shipment_status | LABEL_PRINTED, etc. |
+| is_successful | BOOLEAN | status = 'SUCCESS' | Success flag |
+| is_pending | BOOLEAN | status = 'PENDING' | Pending flag |
+| **Quantities** |
+| total_quantity | INT | stg_fulfillments.total_quantity | Items in shipment |
+| line_item_count | INT | COUNT(stg_fulfillment_line_items) | Distinct line items |
+| **Denormalized (for reporting)** |
+| location_name | VARCHAR(255) | dim_location.location_name | Fulfillment location |
+| customer_email | VARCHAR(255) | dim_customer.email | Customer email |
+| customer_name | VARCHAR(200) | dim_customer.full_name | Customer name |
+| shipping_country | VARCHAR(100) | From fact_order | Destination country |
+| **Flags** |
+| is_same_day | BOOLEAN | fulfillment_time_hours < 24 | Fulfilled same day |
+| is_within_48h | BOOLEAN | fulfillment_time_hours <= 48 | Fulfilled within 48h |
+| is_late | BOOLEAN | fulfillment_time_hours > 72 | Took more than 72h |
+| **ETL** |
+| _loaded_at | TIMESTAMP | ETL | Load timestamp |
+
+---
+
+## fact_inventory_snapshot
+
+**Source:** stg_inventory_levels with denormalized product attributes
+
+**Grain:** One row per inventory item per location per snapshot date
+
+| Column | Type | Source/Transformation | Description |
+|--------|------|----------------------|-------------|
+| **Keys** |
+| inventory_snapshot_key | BIGINT | IDENTITY | Surrogate key |
+| snapshot_date_key | INT | stg_inventory_levels.snapshot_date → to_date_key() | FK to dim_date |
+| product_key | BIGINT | inventory_item_id → lookup | FK to dim_product |
+| location_key | BIGINT | location_id → lookup | FK to dim_location |
+| **Identifiers** |
+| inventory_item_id | VARCHAR(50) | stg_inventory_levels.inventory_item_id → extract_id() | Inventory item ID |
+| location_id | VARCHAR(50) | stg_inventory_levels.location_id → extract_id() | Location ID |
+| snapshot_date | DATE | stg_inventory_levels.snapshot_date | Snapshot date |
+| **Inventory Levels** |
+| available_quantity | INT | stg_inventory_levels.available | Available to sell |
+| on_hand_quantity | INT | stg_inventory_levels.on_hand | Physically in stock |
+| committed_quantity | INT | stg_inventory_levels.committed | Reserved for orders |
+| incoming_quantity | INT | stg_inventory_levels.incoming | Expected inventory |
+| reserved_quantity | INT | stg_inventory_levels.reserved | Other reservations |
+| **Calculated Inventory Metrics** |
+| total_inventory | INT | on_hand + incoming | Total inventory position |
+| sellable_inventory | INT | available | Truly available |
+| **Valuation** |
+| unit_cost | DECIMAL(18,2) | dim_product.unit_cost | Cost per unit |
+| inventory_cost_value | DECIMAL(18,2) | on_hand_quantity * unit_cost | Inventory value at cost |
+| unit_price | DECIMAL(18,2) | dim_product.current_price | Selling price per unit |
+| inventory_retail_value | DECIMAL(18,2) | on_hand_quantity * unit_price | Inventory value at retail |
+| **Denormalized Product (for reporting)** |
+| sku | VARCHAR(100) | dim_product.sku | SKU |
+| product_title | VARCHAR(255) | dim_product.product_title | Product name |
+| variant_title | VARCHAR(255) | dim_product.variant_title | Variant name |
+| product_type | VARCHAR(255) | dim_product.product_type | Category |
+| vendor | VARCHAR(255) | dim_product.vendor | Vendor |
+| **Denormalized Location (for reporting)** |
+| location_name | VARCHAR(255) | dim_location.location_name | Location name |
+| location_country | VARCHAR(100) | dim_location.country | Location country |
+| **Flags** |
+| is_out_of_stock | BOOLEAN | available_quantity = 0 | Out of stock flag |
+| is_low_stock | BOOLEAN | available_quantity < threshold | Low stock warning |
+| is_overstocked | BOOLEAN | available_quantity > high_threshold | Overstock flag |
+| **ETL** |
+| _loaded_at | TIMESTAMP | ETL | Load timestamp |
+
+**Note:** Threshold values for low_stock and overstocked flags are configurable per product category.
+
+---
+
+## fact_refund
+
+**Source:** stg_refunds + stg_refund_line_items with denormalized attributes
+
+**Grain:** One row per refund
+
+| Column | Type | Source/Transformation | Description |
+|--------|------|----------------------|-------------|
+| **Keys** |
+| refund_key | BIGINT | IDENTITY | Surrogate key |
+| order_key | BIGINT | order_id → lookup | FK to fact_order |
+| order_date_key | INT | From parent order | FK to dim_date |
+| refund_date_key | INT | stg_refunds.created_at → to_date_key() | FK to dim_date |
+| customer_key | BIGINT | From parent order | FK to dim_customer |
+| **Refund Identifiers** |
+| refund_id | VARCHAR(50) | stg_refunds.id → extract_id() | Shopify refund ID |
+| order_id | VARCHAR(50) | stg_refunds.order_id → extract_id() | Shopify order ID |
+| order_number | VARCHAR(20) | From fact_order | Display order # |
+| **Timestamps** |
+| order_created_at | TIMESTAMP | From fact_order | Order creation |
+| refund_created_at | TIMESTAMP | stg_refunds.created_at | Refund creation |
+| **Timing Metrics** |
+| days_to_refund | INT | DATE(refund_created_at) - DATE(order_created_at) | Days between order and refund |
+| **Financial** |
+| refund_amount | DECIMAL(18,2) | stg_refunds.total_refunded | Total refund amount |
+| refund_subtotal | DECIMAL(18,2) | SUM(stg_refund_line_items.subtotal_amount) | Line items subtotal |
+| refund_tax | DECIMAL(18,2) | SUM(stg_refund_line_items.total_tax_amount) | Tax refunded |
+| original_order_total | DECIMAL(18,2) | From fact_order.total_amount | Original order value |
+| refund_percentage | DECIMAL(5,2) | (refund_amount / original_order_total) * 100 | % of order refunded |
+| **Items** |
+| total_items_refunded | INT | SUM(stg_refund_line_items.quantity) | Units refunded |
+| line_item_count | INT | COUNT(DISTINCT stg_refund_line_items.line_item_id) | Line items affected |
+| **Restock Analysis** |
+| items_restocked | INT | SUM where restock_type IN ('RETURN','CANCEL') | Units returned to inventory |
+| items_not_restocked | INT | SUM where restock_type = 'NO_RESTOCK' | Units not restocked |
+| **Reason** |
+| refund_note | TEXT | stg_refunds.note | Refund reason/note |
+| **Flags** |
+| is_full_refund | BOOLEAN | refund_percentage >= 99 | Full refund flag |
+| is_partial_refund | BOOLEAN | 0 < refund_percentage < 99 | Partial refund flag |
+| has_restock | BOOLEAN | items_restocked > 0 | Inventory restocked |
+| **Denormalized (for reporting)** |
+| customer_email | VARCHAR(255) | dim_customer.email | Customer email |
+| customer_name | VARCHAR(200) | dim_customer.full_name | Customer name |
+| **ETL** |
+| _loaded_at | TIMESTAMP | ETL | Load timestamp |
+
+---
+
 # DATA LINEAGE
 
 ## Lineage Diagram
@@ -646,6 +948,14 @@ orders ──────────────────────► stg
   │                                                        │
   ├── shippingLines ─────────► stg_order_shipping_lines ───┘ (pivot)
   │
+  ├── fulfillments ──────────► stg_fulfillments ───────────┬──────────► fact_fulfillment
+  │       │                                                │
+  │       └── lineItems ─────► stg_fulfillment_line_items ─┘
+  │
+  ├── refunds ───────────────► stg_refunds ────────────────┬──────────► fact_refund
+  │       │                                                │
+  │       └── refundLineItems► stg_refund_line_items ──────┘
+  │
   └── shippingAddress ───────► (embedded in stg_orders) ───────────────► dim_geography
       billingAddress
 
@@ -653,6 +963,7 @@ orders ──────────────────────► stg
 customers ───────────────────► stg_customers ──────────────────────────► dim_customer
                                     │                                      │
                                     └── + aggregations from stg_orders ────┘
+                                        + RFM scoring
 
 
 productVariants ─────────────► stg_product_variants ───────┬───────────► dim_product
@@ -664,6 +975,12 @@ codeDiscountNodes ───────────► stg_discount_codes ──
 
 
 locations ───────────────────► stg_locations ──────────────────────────► dim_location
+
+
+inventoryLevels ─────────────► stg_inventory_levels ───────────────────► fact_inventory_snapshot
+
+
+abandonedCheckouts ──────────► stg_abandoned_checkouts ────────────────► (analytics/reporting)
 
 
 (generated) ─────────────────────────────────────────────────────────────► dim_date
@@ -807,12 +1124,336 @@ order_id | discount_1_code | discount_1_type | discount_1_amount | discount_2_co
 
 | Layer | Table | Columns | Notes |
 |-------|-------|---------|-------|
-| **STG** | stg_orders | ~25 | Raw order data |
+| **STG** | stg_orders | ~29 | Raw order data + channel fields |
 | **STG** | stg_order_transactions | ~12 | Row per payment |
 | **STG** | stg_order_tax_lines | ~6 | Row per tax |
 | **STG** | stg_order_discount_applications | ~12 | Row per discount |
-| **DWH** | fact_order | ~70 | Pivoted + denormalized |
-| **STG** | stg_order_line_items | ~18 | Raw line items |
+| **STG** | stg_fulfillments | ~13 | Row per shipment |
+| **STG** | stg_refunds | ~6 | Row per refund |
+| **STG** | stg_inventory_levels | ~11 | Row per item×location |
+| **DWH** | fact_order | ~75 | Pivoted + denormalized + channel |
+| **STG** | stg_order_line_items | ~19 | Raw line items |
 | **DWH** | fact_order_line_item | ~35 | + denormalized attributes |
+| **DWH** | fact_fulfillment | ~30 | Fulfillment metrics |
+| **DWH** | fact_refund | ~25 | Refund analytics |
+| **DWH** | fact_inventory_snapshot | ~25 | Inventory tracking |
 
 The DWH tables are wider (more columns) but with fewer joins required for reporting.
+
+---
+
+# METRICS LINEAGE
+
+This section provides complete traceability from business metrics to their underlying data sources.
+
+## Report Catalog by Business Function
+
+### 1. Sales & Revenue Reports
+
+| Report | Key Metrics | Primary DWH Table |
+|--------|-------------|-------------------|
+| Daily Sales Dashboard | Gross Revenue, Net Revenue, Order Count, AOV | fact_order |
+| Revenue by Channel | Revenue by source_name | fact_order |
+| Revenue by Geography | Revenue by country/region | fact_order + dim_geography |
+| Sales Trend Analysis | Revenue over time, Growth rate | fact_order + dim_date |
+| Product Sales Report | Revenue by product, Units sold | fact_order_line_item + dim_product |
+
+### 2. Customer Analytics Reports
+
+| Report | Key Metrics | Primary DWH Table |
+|--------|-------------|-------------------|
+| Customer Lifetime Value | CLV, Order Count, Total Spent | dim_customer |
+| RFM Segmentation | RFM scores, Segment distribution | dim_customer |
+| New vs Returning | First-time vs repeat revenue | fact_order (is_first_order) |
+| Customer Cohort Analysis | Retention by cohort month | dim_customer + fact_order |
+| At-Risk Customers | Days since last order, Segment | dim_customer |
+
+### 3. Product Performance Reports
+
+| Report | Key Metrics | Primary DWH Table |
+|--------|-------------|-------------------|
+| Product Revenue Report | Revenue, Units, Margin by product | fact_order_line_item |
+| Inventory Status | Available, On-hand, Stock-outs | fact_inventory_snapshot |
+| Sell-Through Analysis | Sell-through rate by product | fact_order_line_item + fact_inventory_snapshot |
+| Product Return Analysis | Return rate by product | fact_refund + fact_order_line_item |
+| Margin Analysis | Gross margin %, Top/bottom margin products | fact_order_line_item |
+
+### 4. Marketing & Promotions Reports
+
+| Report | Key Metrics | Primary DWH Table |
+|--------|-------------|-------------------|
+| Discount Performance | Usage rate, Revenue impact | fact_order + dim_discount |
+| Code Redemption Report | Usage by code, Revenue per code | fact_order |
+| Channel Attribution | Revenue by landing/referring site | fact_order |
+| Marketing Spend ROI | ROAS (requires external data) | fact_order + external |
+
+### 5. Operations & Fulfillment Reports
+
+| Report | Key Metrics | Primary DWH Table |
+|--------|-------------|-------------------|
+| Fulfillment Performance | Fulfillment time, On-time rate | fact_fulfillment |
+| Location Performance | Orders by location, Fulfillment speed | fact_fulfillment + dim_location |
+| Shipping Analysis | Carrier distribution, Shipping costs | fact_order + fact_fulfillment |
+| Refund Analysis | Refund rate, Refund reasons | fact_refund |
+| Return Rate Report | Return % by product/category | fact_refund + dim_product |
+
+### 6. Financial Reports
+
+| Report | Key Metrics | Primary DWH Table |
+|--------|-------------|-------------------|
+| Gross Margin Report | COGS, Gross profit, Margin % | fact_order_line_item |
+| Tax Summary | Tax collected by region | fact_order |
+| Refund Summary | Total refunds, Refund % of revenue | fact_refund |
+| Inventory Valuation | Inventory at cost/retail | fact_inventory_snapshot |
+
+---
+
+## Metric Definitions with Complete Lineage
+
+### Sales & Revenue Metrics (8)
+
+| # | Metric | Formula | DWH Source | STG Source | API Field |
+|---|--------|---------|------------|------------|-----------|
+| 1 | **Gross Revenue** | SUM(gross_amount) | fact_order_line_item.gross_amount | stg_order_line_items.total_price | lineItems.originalTotalSet.shopMoney.amount |
+| 2 | **Net Revenue** | SUM(net_amount) | fact_order_line_item.net_amount | stg_order_line_items.discounted_total | lineItems.discountedTotalSet.shopMoney.amount |
+| 3 | **Total Revenue (Order Level)** | SUM(total_amount) | fact_order.total_amount | stg_orders.total_price | orders.totalPriceSet.shopMoney.amount |
+| 4 | **Average Order Value (AOV)** | SUM(total_amount) / COUNT(DISTINCT order_key) | fact_order.total_amount | stg_orders.total_price | orders.totalPriceSet.shopMoney.amount |
+| 5 | **Order Count** | COUNT(DISTINCT order_key) | fact_order.order_key | stg_orders.id | orders.id |
+| 6 | **Units Per Transaction (UPT)** | SUM(quantity_ordered) / COUNT(DISTINCT order_key) | fact_order_line_item.quantity_ordered | stg_order_line_items.quantity | lineItems.quantity |
+| 7 | **Revenue by Channel** | SUM(total_amount) GROUP BY source_name | fact_order.total_amount, fact_order.source_name | stg_orders.total_price, stg_orders.source_name | orders.totalPriceSet, orders.sourceName |
+| 8 | **Sales Growth Rate** | (Current Period - Prior Period) / Prior Period * 100 | fact_order.total_amount + dim_date | stg_orders.total_price, stg_orders.created_at | orders.totalPriceSet, orders.createdAt |
+
+### Customer Analytics Metrics (11)
+
+| # | Metric | Formula | DWH Source | STG Source | API Field |
+|---|--------|---------|------------|------------|-----------|
+| 9 | **Customer Lifetime Value (CLV)** | lifetime_revenue | dim_customer.lifetime_revenue | SUM(stg_orders.total_price) per customer | orders.totalPriceSet |
+| 10 | **Lifetime Order Count** | lifetime_order_count | dim_customer.lifetime_order_count | COUNT(stg_orders) per customer | orders.id, orders.customer.id |
+| 11 | **Average Order Value (Customer)** | average_order_value | dim_customer.average_order_value | Derived: lifetime_revenue / lifetime_order_count | Calculated |
+| 12 | **Days Since Last Order** | days_since_last_order | dim_customer.days_since_last_order | CURRENT_DATE - MAX(stg_orders.created_at) | orders.createdAt |
+| 13 | **First Order Date** | first_order_date | dim_customer.first_order_date | MIN(stg_orders.created_at) | orders.createdAt |
+| 14 | **Customer Retention Rate** | Returning Customers / Starting Customers * 100 | dim_customer + fact_order | stg_customers, stg_orders | customers, orders |
+| 15 | **Repeat Purchase Rate** | Customers with 2+ orders / Total Customers * 100 | dim_customer.lifetime_order_count | stg_customers, stg_orders | customers.numberOfOrders |
+| 16 | **New Customer Revenue** | SUM(total_amount) WHERE is_first_order = TRUE | fact_order.total_amount, fact_order.is_first_order | stg_orders.total_price + derived | orders.totalPriceSet |
+| 17 | **Returning Customer Revenue** | SUM(total_amount) WHERE is_first_order = FALSE | fact_order.total_amount, fact_order.is_first_order | stg_orders.total_price + derived | orders.totalPriceSet |
+| 18 | **RFM Recency Score** | Quintile of days_since_last_order | dim_customer.rfm_recency_score | Derived from stg_orders.created_at | orders.createdAt |
+| 19 | **RFM Segment** | Business logic on R/F/M scores | dim_customer.rfm_segment | Derived | Calculated |
+
+### Product Performance Metrics (10)
+
+| # | Metric | Formula | DWH Source | STG Source | API Field |
+|---|--------|---------|------------|------------|-----------|
+| 20 | **Units Sold** | SUM(quantity_ordered) | fact_order_line_item.quantity_ordered | stg_order_line_items.quantity | lineItems.quantity |
+| 21 | **Product Revenue** | SUM(net_amount) GROUP BY product_key | fact_order_line_item.net_amount | stg_order_line_items.discounted_total | lineItems.discountedTotalSet |
+| 22 | **Average Selling Price (ASP)** | SUM(net_amount) / SUM(quantity_ordered) | fact_order_line_item | stg_order_line_items | lineItems |
+| 23 | **Gross Margin $** | SUM(gross_margin) | fact_order_line_item.gross_margin | Derived: net_amount - (cost * qty) | lineItems + variants.inventoryItem.unitCost |
+| 24 | **Gross Margin %** | SUM(gross_margin) / SUM(net_amount) * 100 | fact_order_line_item | Derived | Calculated |
+| 25 | **Available Inventory** | available_quantity | fact_inventory_snapshot.available_quantity | stg_inventory_levels.available | inventoryLevels.quantities.available |
+| 26 | **Inventory Value (Cost)** | SUM(inventory_cost_value) | fact_inventory_snapshot.inventory_cost_value | stg_inventory_levels.on_hand * cost | inventoryLevels + inventoryItem.unitCost |
+| 27 | **Stock-Out Rate** | COUNT(is_out_of_stock = TRUE) / Total SKUs * 100 | fact_inventory_snapshot.is_out_of_stock | stg_inventory_levels.available = 0 | inventoryLevels.quantities.available |
+| 28 | **Product Return Rate** | Refunded Qty / Sold Qty * 100 | fact_refund + fact_order_line_item | stg_refund_line_items + stg_order_line_items | refunds.refundLineItems + lineItems |
+| 29 | **Sell-Through Rate** | Units Sold / Beginning Inventory * 100 | fact_order_line_item + fact_inventory_snapshot | Derived | Calculated |
+
+### Marketing & Promotions Metrics (9)
+
+| # | Metric | Formula | DWH Source | STG Source | API Field |
+|---|--------|---------|------------|------------|-----------|
+| 30 | **Discount Usage Rate** | Orders with Discount / Total Orders * 100 | fact_order.has_discount | stg_orders.total_discounts > 0 | orders.totalDiscountsSet |
+| 31 | **Total Discount Amount** | SUM(discount_amount) | fact_order.discount_amount | stg_orders.total_discounts | orders.totalDiscountsSet.shopMoney.amount |
+| 32 | **Average Discount per Order** | SUM(discount_amount) / COUNT(DISTINCT order_key) | fact_order.discount_amount | stg_orders.total_discounts | orders.totalDiscountsSet |
+| 33 | **Discount Code Revenue** | SUM(total_amount) GROUP BY discount_code | fact_order.total_amount, discount_1_code | stg_orders, stg_order_discount_applications | orders, discountApplications |
+| 34 | **Discount Code Usage Count** | current_usage_count | dim_discount.current_usage_count | stg_discount_codes.usage_count | codeDiscount.asyncUsageCount |
+| 35 | **Discount Redemption Rate** | usage_count / usage_limit * 100 | dim_discount | stg_discount_codes | codeDiscount.asyncUsageCount / usageLimit |
+| 36 | **Revenue by Landing Site** | SUM(total_amount) GROUP BY landing_site | fact_order.total_amount, fact_order.landing_site | stg_orders.total_price, stg_orders.landing_site | orders.totalPriceSet, orders.landingSite |
+| 37 | **Revenue by Referring Site** | SUM(total_amount) GROUP BY referring_site | fact_order.total_amount, fact_order.referring_site | stg_orders.total_price, stg_orders.referring_site | orders.totalPriceSet, orders.referringSite |
+| 38 | **Cart Abandonment Rate** | Abandoned / (Abandoned + Completed) * 100 | stg_abandoned_checkouts | stg_abandoned_checkouts.completed_at IS NULL | abandonedCheckouts |
+
+### Operations & Fulfillment Metrics (11)
+
+| # | Metric | Formula | DWH Source | STG Source | API Field |
+|---|--------|---------|------------|------------|-----------|
+| 39 | **Fulfillment Time (Hours)** | AVG(fulfillment_time_hours) | fact_fulfillment.fulfillment_time_hours | stg_fulfillments.created_at - stg_orders.created_at | fulfillments.createdAt - orders.createdAt |
+| 40 | **Fulfillment Time (Days)** | AVG(fulfillment_time_days) | fact_fulfillment.fulfillment_time_days | Derived | Calculated |
+| 41 | **Same-Day Fulfillment Rate** | COUNT(is_same_day = TRUE) / Total * 100 | fact_fulfillment.is_same_day | Derived: fulfillment < 24h | Calculated |
+| 42 | **On-Time Shipping Rate** | COUNT(is_within_48h = TRUE) / Total * 100 | fact_fulfillment.is_within_48h | Derived | Calculated |
+| 43 | **Late Fulfillment Rate** | COUNT(is_late = TRUE) / Total * 100 | fact_fulfillment.is_late | Derived: fulfillment > 72h | Calculated |
+| 44 | **Refund Rate** | Orders with Refunds / Total Orders * 100 | fact_refund + fact_order | stg_refunds + stg_orders | refunds + orders |
+| 45 | **Refund Amount** | SUM(refund_amount) | fact_refund.refund_amount | stg_refunds.total_refunded | refunds.totalRefundedSet.shopMoney.amount |
+| 46 | **Refund % of Revenue** | SUM(refund_amount) / SUM(total_amount) * 100 | fact_refund + fact_order | stg_refunds, stg_orders | Calculated |
+| 47 | **Items Refunded** | SUM(total_items_refunded) | fact_refund.total_items_refunded | SUM(stg_refund_line_items.quantity) | refundLineItems.quantity |
+| 48 | **Restock Rate** | items_restocked / total_items_refunded * 100 | fact_refund | stg_refund_line_items.restock_type | refundLineItems.restockType |
+| 49 | **Fulfillments by Location** | COUNT(*) GROUP BY location_key | fact_fulfillment.location_key | stg_fulfillments.location_id | fulfillments.location.id |
+
+### Financial Metrics (8)
+
+| # | Metric | Formula | DWH Source | STG Source | API Field |
+|---|--------|---------|------------|------------|-----------|
+| 50 | **Cost of Goods Sold (COGS)** | SUM(quantity * unit_cost) | fact_order_line_item.unit_cost, quantity_ordered | stg_product_variants.cost, stg_order_line_items.quantity | variants.inventoryItem.unitCost, lineItems.quantity |
+| 51 | **Gross Profit** | Net Revenue - COGS | Derived | Derived | Calculated |
+| 52 | **Gross Profit Margin %** | Gross Profit / Net Revenue * 100 | Derived | Derived | Calculated |
+| 53 | **Tax Collected** | SUM(tax_amount) | fact_order.tax_amount | stg_orders.total_tax | orders.totalTaxSet.shopMoney.amount |
+| 54 | **Tax by Region** | SUM(tax_amount) GROUP BY country | fact_order.tax_amount + dim_geography | stg_orders.total_tax, shipping_address | orders.totalTaxSet, shippingAddress |
+| 55 | **Shipping Revenue** | SUM(shipping_amount) | fact_order.shipping_amount | stg_orders.total_shipping | orders.totalShippingPriceSet.shopMoney.amount |
+| 56 | **Net Revenue After Refunds** | SUM(net_amount) | fact_order.net_amount | stg_orders.total_price - stg_orders.total_refunded | orders.totalPriceSet - totalRefundedSet |
+| 57 | **Inventory Valuation (Retail)** | SUM(inventory_retail_value) | fact_inventory_snapshot.inventory_retail_value | stg_inventory_levels.on_hand * variant.price | inventoryLevels * variants.price |
+
+---
+
+## Complete Data Lineage Examples
+
+### Example 1: Gross Margin % by Product
+
+**Report:** Which products have the best margins?
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ METRIC: Gross Margin % by Product                                                    │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│ FORMULA: (SUM(net_amount) - SUM(quantity * unit_cost)) / SUM(net_amount) * 100      │
+│                                                                                      │
+│ DWH QUERY:                                                                           │
+│   SELECT                                                                             │
+│     p.product_title,                                                                 │
+│     SUM(f.net_amount) as revenue,                                                    │
+│     SUM(f.quantity_ordered * f.unit_cost) as cogs,                                  │
+│     (SUM(f.net_amount) - SUM(f.quantity_ordered * f.unit_cost))                     │
+│       / NULLIF(SUM(f.net_amount), 0) * 100 as margin_pct                            │
+│   FROM fact_order_line_item f                                                        │
+│   JOIN dim_product p ON f.product_key = p.product_key                               │
+│   GROUP BY p.product_title                                                           │
+│                                                                                      │
+│ STG SOURCE:                                                                          │
+│   • stg_order_line_items.discounted_total → net_amount                              │
+│   • stg_order_line_items.quantity → quantity_ordered                                │
+│   • stg_product_variants.cost → unit_cost                                           │
+│                                                                                      │
+│ API SOURCE:                                                                          │
+│   • lineItems.discountedTotalSet.shopMoney.amount                                   │
+│   • lineItems.quantity                                                               │
+│   • variants.inventoryItem.unitCost.amount                                          │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Example 2: Fulfillment Performance by Location
+
+**Report:** Which locations fulfill orders fastest?
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ METRIC: Average Fulfillment Time by Location                                         │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│ FORMULA: AVG(fulfillment_created_at - order_created_at) in hours                    │
+│                                                                                      │
+│ DWH QUERY:                                                                           │
+│   SELECT                                                                             │
+│     l.location_name,                                                                 │
+│     AVG(ff.fulfillment_time_hours) as avg_hours,                                    │
+│     COUNT(*) as fulfillment_count,                                                   │
+│     SUM(CASE WHEN ff.is_same_day THEN 1 ELSE 0 END) * 100.0                         │
+│       / COUNT(*) as same_day_pct                                                     │
+│   FROM fact_fulfillment ff                                                           │
+│   JOIN dim_location l ON ff.location_key = l.location_key                           │
+│   GROUP BY l.location_name                                                           │
+│                                                                                      │
+│ STG SOURCE:                                                                          │
+│   • stg_fulfillments.created_at - stg_orders.created_at → fulfillment_time_hours    │
+│   • stg_fulfillments.location_id → location_key                                     │
+│   • stg_locations.name → location_name                                               │
+│                                                                                      │
+│ API SOURCE:                                                                          │
+│   • fulfillments.createdAt                                                           │
+│   • orders.createdAt                                                                 │
+│   • fulfillments.location.id                                                         │
+│   • locations.name                                                                   │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Example 3: RFM Customer Segmentation
+
+**Report:** Customer distribution by RFM segment
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│ METRIC: Customer Count & Revenue by RFM Segment                                      │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                      │
+│ DWH QUERY:                                                                           │
+│   SELECT                                                                             │
+│     rfm_segment,                                                                     │
+│     COUNT(*) as customer_count,                                                      │
+│     SUM(lifetime_revenue) as total_revenue,                                         │
+│     AVG(average_order_value) as avg_aov,                                            │
+│     AVG(days_since_last_order) as avg_recency                                       │
+│   FROM dim_customer                                                                  │
+│   WHERE customer_key > 0  -- Exclude unknown                                        │
+│   GROUP BY rfm_segment                                                               │
+│                                                                                      │
+│ STG SOURCE:                                                                          │
+│   • stg_customers + aggregations from stg_orders                                    │
+│   • RFM scores calculated during dim_customer load:                                 │
+│     - rfm_recency_score: NTILE(5) OVER (ORDER BY MAX(order_date) DESC)             │
+│     - rfm_frequency_score: NTILE(5) OVER (ORDER BY COUNT(order_id))                │
+│     - rfm_monetary_score: NTILE(5) OVER (ORDER BY SUM(total_price))                │
+│                                                                                      │
+│ API SOURCE:                                                                          │
+│   • customers.id, customers.email                                                    │
+│   • orders.customer.id, orders.createdAt, orders.totalPriceSet                      │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Schema Coverage Summary
+
+### STG Layer Coverage
+
+| STG Table | Status | Metrics Enabled |
+|-----------|--------|-----------------|
+| stg_orders | ✓ Enhanced | Revenue, AOV, Order Count, Channel Attribution |
+| stg_order_line_items | ✓ Enhanced | Units, Product Revenue, Margin |
+| stg_order_transactions | ✓ | Payment Methods, Payment Amounts |
+| stg_order_tax_lines | ✓ | Tax by Region |
+| stg_order_discount_applications | ✓ | Discount Usage |
+| stg_order_shipping_lines | ✓ | Shipping Methods |
+| stg_customers | ✓ | Customer Count, Marketing Consent |
+| stg_products | ✓ | Product Catalog |
+| stg_product_variants | ✓ | SKU, Cost, Pricing |
+| stg_discount_codes | ✓ | Discount Performance |
+| stg_locations | ✓ | Location Analytics |
+| **stg_fulfillments** | ✓ NEW | Fulfillment Time, Shipping Performance |
+| **stg_fulfillment_line_items** | ✓ NEW | Item-level fulfillment tracking |
+| **stg_refunds** | ✓ NEW | Refund Rate, Refund Amount |
+| **stg_refund_line_items** | ✓ NEW | Product Return Rate, Restock Analysis |
+| **stg_inventory_levels** | ✓ NEW | Stock Levels, Inventory Valuation |
+| **stg_abandoned_checkouts** | ✓ NEW | Cart Abandonment Rate, Recovery |
+
+### DWH Layer Coverage
+
+| DWH Table | Status | Primary Use Case |
+|-----------|--------|------------------|
+| fact_order | ✓ Enhanced | Order-level sales & revenue |
+| fact_order_line_item | ✓ | Product-level sales & margin |
+| **fact_fulfillment** | ✓ NEW | Fulfillment performance metrics |
+| **fact_refund** | ✓ NEW | Refund and return analysis |
+| **fact_inventory_snapshot** | ✓ NEW | Inventory tracking over time |
+| dim_customer | ✓ Enhanced | Customer analytics, RFM segmentation |
+| dim_product | ✓ | Product master data |
+| dim_geography | ✓ | Geographic analysis |
+| dim_discount | ✓ | Discount performance |
+| dim_location | ✓ | Fulfillment location analysis |
+| dim_date | ✓ | Time-based analysis |
+| dim_time | ✓ | Hour-of-day analysis |
+
+### Metrics Coverage: 57 metrics fully supported
+
+| Category | Count | Coverage |
+|----------|-------|----------|
+| Sales & Revenue | 8 | 100% |
+| Customer Analytics | 11 | 100% |
+| Product Performance | 10 | 100% |
+| Marketing & Promotions | 9 | 100% (ROAS requires external data) |
+| Operations & Fulfillment | 11 | 100% |
+| Financial | 8 | 100% |
+| **Total** | **57** | **100%** |

@@ -779,6 +779,72 @@ accepts_marketing = TRUE when marketingState IN ('SUBSCRIBED', 'PENDING')
 
 ---
 
+### Metrics-Driven Schema Design
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** data-modeling
+**Last Used:** 2026-02-04
+
+**When to use:**
+Designing or validating a data warehouse schema to ensure it can support all required business metrics.
+
+**Process:**
+```
+1. Catalog Required Metrics
+   ├── List all business reports needed
+   ├── Define each metric (formula, granularity, dimensions)
+   └── Group by business function
+
+2. Trace Lineage Backwards
+   ├── Metric → DWH table(s) needed
+   ├── DWH table → STG table(s) source
+   └── STG table → API field(s) source
+
+3. Gap Analysis
+   ├── Missing STG tables (data not being extracted)
+   ├── Missing STG fields (extracted but not all fields)
+   ├── Missing DWH calculations (data available but not computed)
+   └── Missing dimensions for slicing
+
+4. Prioritize Gaps
+   ├── CRITICAL: Blocks must-have metrics
+   ├── HIGH: Blocks important metrics
+   ├── MEDIUM: Enables nice-to-have metrics
+   └── LOW: Future consideration
+
+5. Document Lineage
+   ├── Metric → DWH → STG → API mapping table
+   ├── Update schema documentation
+   └── Create data dictionary
+```
+
+**Benefits:**
+- Ensures schema covers all business requirements
+- Identifies gaps BEFORE implementation (cheaper to fix)
+- Creates traceable lineage for debugging/auditing
+- Validates that source data exists for each metric
+- Produces documentation as a byproduct
+
+**Example Gap Analysis Output:**
+
+| Gap Type | Missing Item | Metrics Blocked | Priority |
+|----------|--------------|-----------------|----------|
+| STG Table | stg_fulfillments | Fulfillment Time | HIGH |
+| STG Field | orders.source_name | Revenue by Channel | HIGH |
+| DWH Field | dim_customer.rfm_segment | RFM Segmentation | MEDIUM |
+| DWH Table | fact_inventory_snapshot | Sell-Through Rate | MEDIUM |
+
+**Key Insight:**
+"Start with metrics, work backwards to data" is more effective than "start with available data, figure out metrics later."
+
+**Source:** Shopify DWH gap analysis project
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-02-04-metrics-gap-analysis.md
+
+---
+
 ## Anti-Patterns
 
 ### Building on Deprecated APIs
@@ -813,6 +879,7 @@ accepts_marketing = TRUE when marketingState IN ('SUBSCRIBED', 'PENDING')
 | Star Schema for Single Source | LOW | 1 | data-modeling |
 | Pivot Transformation (Rows to Columns) | LOW | 1 | data-modeling |
 | Variant-Level Grain | LOW | 1 | data-modeling |
+| **Metrics-Driven Schema Design** | LOW | 1 | data-modeling |
 | Validate Schema Against API | LOW | 1 | process |
 | Check API Lifecycle First | LOW | 1 | process |
 | Mid-Session Checkpointing | LOW | 2 | process |
@@ -845,6 +912,13 @@ When to promote from MEDIUM → HIGH:
 ---
 
 ## Pattern Review Log
+
+### 2026-02-04 (Metrics Gap Analysis)
+- Added **Metrics-Driven Schema Design** pattern - work backwards from metrics to data
+- Applied pattern to Shopify DWH: identified 6 missing STG tables, 3 missing DWH tables
+- Enhanced schema-layered.md with 57 metrics fully documented with lineage
+- Created episodic: 2026-02-04-metrics-gap-analysis.md
+- Key insight: "Start with metrics, work backwards to data" is more effective than the reverse
 
 ### 2026-01-30 (Evening - /learn session)
 - Added **Architecture Selection (Warehouse vs Lakehouse)** pattern - decision framework

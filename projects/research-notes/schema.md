@@ -211,7 +211,18 @@ VALUES
 | `default_country` | VARCHAR(100) | YES | Default address country |
 | `default_province` | VARCHAR(100) | YES | Default address province |
 | `tags` | VARCHAR(1000) | YES | Shopify customer tags |
+| `first_order_date` | DATE | YES | First purchase date |
+| `last_order_date` | DATE | YES | Most recent purchase |
+| `average_order_value` | DECIMAL(18,2) | YES | Avg spend per order |
+| `days_since_last_order` | INT | YES | Recency in days |
+| `rfm_recency_score` | INT | YES | RFM Recency (1-5) |
+| `rfm_frequency_score` | INT | YES | RFM Frequency (1-5) |
+| `rfm_monetary_score` | INT | YES | RFM Monetary (1-5) |
+| `rfm_segment` | VARCHAR(30) | YES | RFM segment name |
+| `customer_segment` | VARCHAR(20) | YES | New/Active/At-Risk/Lapsed |
 | `_loaded_at` | TIMESTAMP | NO | ETL load timestamp |
+
+**RFM Segments:** Champions, Loyal, Potential Loyalists, New Customers, Promising, Needs Attention, About to Sleep, At Risk, Can't Lose, Hibernating, Lost
 
 ---
 
@@ -347,9 +358,107 @@ VALUES
 
 **Note:** Row with `location_key = 0` reserved for "Unknown Location" default.
 
-**Future Use:**
-- FK for fact_fulfillment (when implemented)
-- FK for fact_inventory_snapshot (when implemented)
+---
+
+### fact_fulfillment
+
+**Grain:** One row per fulfillment (shipment)
+
+| Column | Type | Null | Description |
+|--------|------|------|-------------|
+| `fulfillment_key` | BIGINT | NO | Surrogate PK |
+| `order_key` | BIGINT | NO | FK → fact_order_header |
+| `location_key` | BIGINT | YES | FK → dim_location |
+| `customer_key` | BIGINT | YES | FK → dim_customer |
+| `order_date_key` | INT | NO | FK → dim_date (order date) |
+| `fulfillment_date_key` | INT | NO | FK → dim_date (fulfillment date) |
+| `fulfillment_time_key` | INT | NO | FK → dim_time |
+| `fulfillment_id` | VARCHAR(50) | NO | Shopify fulfillment ID |
+| `order_id` | VARCHAR(50) | NO | Shopify order ID |
+| `order_name` | VARCHAR(20) | NO | Order number |
+| `fulfillment_time_hours` | DECIMAL(10,2) | YES | Hours from order to fulfillment |
+| `fulfillment_time_days` | DECIMAL(10,2) | YES | Days from order to fulfillment |
+| `tracking_number` | VARCHAR(255) | YES | Tracking number |
+| `tracking_company` | VARCHAR(100) | YES | Carrier name |
+| `shipping_service` | VARCHAR(100) | YES | Shipping service |
+| `fulfillment_status` | VARCHAR(20) | NO | SUCCESS, PENDING, etc. |
+| `total_quantity` | INT | NO | Items in shipment |
+| `is_same_day` | BOOLEAN | NO | Fulfilled within 24h |
+| `is_within_48h` | BOOLEAN | NO | Fulfilled within 48h |
+| `is_late` | BOOLEAN | NO | Took more than 72h |
+| `_loaded_at` | TIMESTAMP | NO | ETL load timestamp |
+
+**Analytics Enabled:**
+- Average fulfillment time: `AVG(fulfillment_time_hours)`
+- Same-day fulfillment rate: `SUM(is_same_day) / COUNT(*)`
+- On-time rate: `SUM(is_within_48h) / COUNT(*)`
+- Performance by location: GROUP BY `location_key`
+
+---
+
+### fact_inventory_snapshot
+
+**Grain:** One row per inventory item per location per snapshot date
+
+| Column | Type | Null | Description |
+|--------|------|------|-------------|
+| `inventory_snapshot_key` | BIGINT | NO | Surrogate PK |
+| `snapshot_date_key` | INT | NO | FK → dim_date |
+| `product_key` | BIGINT | NO | FK → dim_product |
+| `location_key` | BIGINT | NO | FK → dim_location |
+| `inventory_item_id` | VARCHAR(50) | NO | Shopify inventory item ID |
+| `available_quantity` | INT | NO | Available to sell |
+| `on_hand_quantity` | INT | NO | Physically in stock |
+| `committed_quantity` | INT | NO | Reserved for orders |
+| `incoming_quantity` | INT | NO | Expected inventory |
+| `unit_cost` | DECIMAL(18,2) | YES | Cost per unit |
+| `inventory_cost_value` | DECIMAL(18,2) | YES | on_hand × unit_cost |
+| `unit_price` | DECIMAL(18,2) | YES | Selling price |
+| `inventory_retail_value` | DECIMAL(18,2) | YES | on_hand × unit_price |
+| `is_out_of_stock` | BOOLEAN | NO | available = 0 |
+| `is_low_stock` | BOOLEAN | NO | Below threshold |
+| `_loaded_at` | TIMESTAMP | NO | ETL load timestamp |
+
+**Analytics Enabled:**
+- Inventory valuation: `SUM(inventory_cost_value)` or `SUM(inventory_retail_value)`
+- Stock-out count: `COUNT(*) WHERE is_out_of_stock = TRUE`
+- Inventory trends: Compare across `snapshot_date_key`
+
+---
+
+### fact_refund
+
+**Grain:** One row per refund
+
+| Column | Type | Null | Description |
+|--------|------|------|-------------|
+| `refund_key` | BIGINT | NO | Surrogate PK |
+| `order_key` | BIGINT | NO | FK → fact_order_header |
+| `customer_key` | BIGINT | YES | FK → dim_customer |
+| `order_date_key` | INT | NO | FK → dim_date (order date) |
+| `refund_date_key` | INT | NO | FK → dim_date (refund date) |
+| `refund_id` | VARCHAR(50) | NO | Shopify refund ID |
+| `order_id` | VARCHAR(50) | NO | Shopify order ID |
+| `order_name` | VARCHAR(20) | NO | Order number |
+| `days_to_refund` | INT | YES | Days between order and refund |
+| `refund_amount` | DECIMAL(18,2) | NO | Total refund amount |
+| `refund_subtotal` | DECIMAL(18,2) | NO | Line items subtotal |
+| `refund_tax` | DECIMAL(18,2) | NO | Tax refunded |
+| `original_order_total` | DECIMAL(18,2) | NO | Original order value |
+| `refund_percentage` | DECIMAL(5,2) | YES | % of order refunded |
+| `total_items_refunded` | INT | NO | Units refunded |
+| `items_restocked` | INT | NO | Units returned to inventory |
+| `refund_note` | TEXT | YES | Refund reason |
+| `is_full_refund` | BOOLEAN | NO | refund_percentage >= 99 |
+| `is_partial_refund` | BOOLEAN | NO | Partial refund |
+| `has_restock` | BOOLEAN | NO | Items were restocked |
+| `_loaded_at` | TIMESTAMP | NO | ETL load timestamp |
+
+**Analytics Enabled:**
+- Refund rate: `COUNT(DISTINCT refund_key) / COUNT(DISTINCT order_key)`
+- Refund amount: `SUM(refund_amount)`
+- Refund reasons: GROUP BY `refund_note`
+- Average days to refund: `AVG(days_to_refund)`
 
 ---
 
