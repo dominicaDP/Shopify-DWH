@@ -1,7 +1,7 @@
 # Tasks
 
 **Project:** Shopify DWH
-**Last Updated:** 2026-01-30
+**Last Updated:** 2026-02-04
 
 ---
 
@@ -23,25 +23,30 @@
 
 ### Schema & Design (Layer 2 - DYT Specific)
 - [ ] Design DYT-specific customization layer (voucher tracking, B2B2C attribution, Gamatek integration)
-- [ ] Define fact_fulfillment for carrier analytics (if needed)
-- [ ] Define fact_inventory_snapshot for stock tracking (if needed)
 
 ### ETL Implementation
 - [ ] Set up ETL project structure on Linux server
 - [ ] Implement Shopify GraphQL client wrapper
 - [ ] Implement PyExasol loader utilities
-- [ ] Create SHOPIFY_STG schema (10 staging tables per schema-layered.md)
-- [ ] Create SHOPIFY_DWH schema (facts + dims per schema-layered.md)
+- [ ] Create SHOPIFY_STG schema (16 staging tables per schema-layered.md)
+- [ ] Create SHOPIFY_DWH schema (5 facts + 7 dims per schema-layered.md)
 - [ ] Build STG loaders:
   - [ ] stg_orders + stg_order_line_items + stg_order_transactions + stg_order_tax_lines + stg_order_discount_applications + stg_order_shipping_lines
+  - [ ] stg_fulfillments + stg_fulfillment_line_items
+  - [ ] stg_refunds + stg_refund_line_items
   - [ ] stg_customers
   - [ ] stg_products + stg_product_variants
   - [ ] stg_discount_codes
   - [ ] stg_locations
+  - [ ] stg_inventory_levels
+  - [ ] stg_abandoned_checkouts
 - [ ] Build STG → DWH transforms:
   - [ ] Pivot payments/taxes/discounts → fact_order
   - [ ] Denormalize → fact_order_line_item
-  - [ ] Aggregate LTV metrics → dim_customer
+  - [ ] Build fact_fulfillment (fulfillment timing metrics)
+  - [ ] Build fact_refund (refund analytics)
+  - [ ] Build fact_inventory_snapshot (inventory tracking)
+  - [ ] Aggregate LTV + RFM metrics → dim_customer
   - [ ] Build dim_product, dim_geography, dim_discount, dim_location
   - [ ] Generate dim_date, dim_time
 - [ ] Configure systemd timers
@@ -65,6 +70,50 @@
 ---
 
 ## Completed
+
+### Week of 2026-02-03
+
+- [x] Conduct metrics gap analysis against standard ecommerce KPIs
+  **Priority:** HIGH | **Added:** 2026-02-04 | **Completed:** 2026-02-04
+  **Finding:** Identified 6 missing STG tables, 5 missing STG fields, 3 missing DWH tables
+
+- [x] Add fulfillment tracking to schema (stg_fulfillments, stg_fulfillment_line_items, fact_fulfillment)
+  **Priority:** HIGH | **Added:** 2026-02-04 | **Completed:** 2026-02-04
+  **Metrics enabled:** Fulfillment time, same-day rate, on-time shipping rate
+
+- [x] Add refund tracking to schema (stg_refunds, stg_refund_line_items, fact_refund)
+  **Priority:** HIGH | **Added:** 2026-02-04 | **Completed:** 2026-02-04
+  **Metrics enabled:** Refund rate, return rate, restock analysis
+
+- [x] Add inventory tracking to schema (stg_inventory_levels, fact_inventory_snapshot)
+  **Priority:** MEDIUM | **Added:** 2026-02-04 | **Completed:** 2026-02-04
+  **Metrics enabled:** Sell-through rate, stock-out rate, inventory valuation
+
+- [x] Add abandoned checkout tracking (stg_abandoned_checkouts)
+  **Priority:** MEDIUM | **Added:** 2026-02-04 | **Completed:** 2026-02-04
+  **Metrics enabled:** Cart abandonment rate, recovery rate
+
+- [x] Add channel attribution fields to stg_orders (source_name, landing_site, referring_site)
+  **Priority:** HIGH | **Added:** 2026-02-04 | **Completed:** 2026-02-04
+  **Metrics enabled:** Revenue by channel, marketing attribution
+
+- [x] Add RFM segmentation to dim_customer
+  **Priority:** MEDIUM | **Added:** 2026-02-04 | **Completed:** 2026-02-04
+  **Added:** rfm_recency/frequency/monetary_score, rfm_segment with 11 segment definitions
+
+- [x] Create comprehensive metrics lineage documentation (57 metrics)
+  **Priority:** HIGH | **Added:** 2026-02-04 | **Completed:** 2026-02-04
+  **Created:** Metrics lineage section in schema-layered.md + metrics-lineage-reference.md
+
+- [x] Create ecommerce metrics reference with industry benchmarks
+  **Priority:** NORMAL | **Added:** 2026-02-04 | **Completed:** 2026-02-04
+  **Created:** ecommerce-metrics-reference.md with 57 metrics, formulas, and benchmarks
+
+- [x] Add Metrics-Driven Schema Design pattern to dev-patterns.md
+  **Priority:** NORMAL | **Added:** 2026-02-04 | **Completed:** 2026-02-04
+  **Pattern:** Start with metrics, work backwards to data sources
+
+---
 
 ### Week of 2026-01-27
 
