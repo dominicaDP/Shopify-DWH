@@ -153,9 +153,26 @@ Comprehensive gap analysis of the Shopify DWH schema against standard ecommerce 
 
 ---
 
+## Word Documentation Created
+
+Split schema documentation into 5 logical Word documents for stakeholder review:
+
+| Document | Purpose |
+|----------|---------|
+| 01-Architecture-Overview.docx | Executive summary, design principles |
+| 02-Staging-Schema.docx | All 16 STG table definitions |
+| 03-Warehouse-Schema.docx | 7 dims + 5 facts with RFM segments |
+| 04-Data-Lineage.docx | Transformation examples, ETL load order |
+| 05-Metrics-Reference.docx | 57 metrics with full lineage |
+
+Location: `projects/research-notes/for-word/`
+Conversion: Used python-docx script (committed for reuse)
+
+---
+
 ## Next Steps
 
 1. [ ] Verify Shopify GraphQL queries for new tables (fulfillments, refunds, inventory)
 2. [ ] Design ETL scripts for new extractions
 3. [ ] Create RFM calculation SQL for dim_customer load
-4. [ ] Export schema-layered.md to Word for stakeholder review
+4. [x] Export schema-layered.md to Word for stakeholder review
