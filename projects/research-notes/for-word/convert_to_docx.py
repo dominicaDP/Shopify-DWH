@@ -211,6 +211,7 @@ def main():
         '04-Data-Lineage.md',
         '05-Metrics-Reference.md',
         '06-DYT-Layer2-Schema.md',
+        '07-Report-Mapping-Analysis.md',
     ]
 
     for md_file in md_files:

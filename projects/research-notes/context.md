@@ -258,10 +258,18 @@ All to be included in holistic design, worked sequentially:
 - Channel-centric analytics lens
 - 22 DYT-specific metrics defined
 
+**Report mapping analysis complete (2026-02-18):** See [report-mapping-analysis.md](report-mapping-analysis.md)
+- Mapped all 38 existing DYT reports against Layer 2 schema
+- 13 reports well covered, 8 partially covered, 5 need new concepts
+- 11 questions identified and answered (8 resolved, 3 partially open)
+- CampaignSegmentTbl fully analysed: Client = dim_channel, Campaign = attribute on dim_voucher
+- Schema refinements identified: campaign_name, subscription parsing, is_marketing flag, breakage, overspend, is_dual_redemption
+
 **Open items (before implementation):**
-- Inspect SQL Server schema to confirm actual column names
+- Clarify billing/cost data source for Report 18 (Provisional Billing) — team discussion needed
+- Verify membership tiers (Standard Bank) in Shopify discount code names during ETL build
 - Validate gift card join strategy with real data
-- Add DYT-specific metrics from report descriptions
+- Update schema-dyt.md with confirmed report mapping findings
 - Gamatek fulfillment integration (future phase)
 
 ### Finance Approach
@@ -322,6 +330,7 @@ All to be included in holistic design, worked sequentially:
 - [implementation-guide.md](implementation-guide.md) - ETL implementation reference
 - [notes.md](notes.md) - Research notes
 - [schema-dyt.md](schema-dyt.md) - DYT Layer 2 B2B2C voucher & channel schema
+- [report-mapping-analysis.md](report-mapping-analysis.md) - 38 DYT reports mapped against Layer 2 schema with Q&A
 - [schema.md](schema.md) - Original schema (superseded by schema-layered.md)
 
 ### External

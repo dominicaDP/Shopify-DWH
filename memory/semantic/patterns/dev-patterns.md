@@ -981,7 +981,7 @@ One file in the right place is always better than two files in two places. Dupli
 ### Markdown-to-Word Pipeline for Design Review
 
 **Confidence:** LOW
-**Uses:** 1
+**Uses:** 2
 **Category:** process
 **Last Used:** 2026-02-18
 
@@ -1021,10 +1021,44 @@ When adding a new document, update both the markdown source AND the `md_files` l
 
 ---
 
+### Data Investigation Before Schema Finalisation
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** data-modeling
+**Last Used:** 2026-02-18
+
+**When to use:**
+Designing a schema that depends on understanding source data relationships, especially when source data has been described secondhand or via CSV exports.
+
+**Rule:**
+Before finalising dimension vs attribute decisions, query the actual source data to understand real cardinality, value distributions, and column relationships.
+
+**Example:**
+CampaignSegmentTbl CSV showed 150+ unique Campaign values, suggesting a standalone dimension. But querying actual rows revealed:
+- ~100 of those "campaigns" were internal Marketing sub-entries (small quantities)
+- For real clients, Campaign is a sub-classification (product lines, subscription tiers)
+- Too varied for a dimension → better as `campaign_name` VARCHAR on dim_voucher
+- Subscription tiers can be parsed from Campaign name into structured fields
+
+**Anti-pattern:**
+Designing schema from data dictionaries or CSV column summaries without querying actual row-level data combinations.
+
+**Benefits:**
+- Reveals true cardinality and relationships
+- Prevents over-engineering (creating unnecessary dimensions)
+- Catches data quality issues early (refund pattern inconsistency)
+- Informs ETL parsing logic (subscription tier encoding)
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-02-18-report-mapping-analysis.md
+
+---
+
 ### Design-on-Paper Before Building
 
 **Confidence:** LOW
-**Uses:** 2
+**Uses:** 3
 **Category:** process
 **Last Used:** 2026-02-18
 
@@ -1043,9 +1077,10 @@ Building data infrastructure (schemas, ETL, APIs) where the design has significa
 - Creates documentation as a byproduct (not an afterthought)
 - Changes on paper are free; changes in code are costly
 
-**Validated twice:**
+**Validated three times:**
 - Layer 1 (generic Shopify DWH): 17 STG + 12 DWH tables designed on paper, reviewed, then built
 - Layer 2 (DYT B2B2C): 3 STG + 4 DWH tables designed on paper with join strategy and metrics
+- Report mapping analysis: Mapping 38 reports against schema caught 8 gaps and data quality issues before any code
 
 **Key insight:**
 The design review catches things implementation never would - like the gift card code masking issue that affects join strategy. Better to discover this on paper than mid-ETL build.
@@ -1093,12 +1128,13 @@ The design review catches things implementation never would - like the gift card
 | **Metrics-Driven Schema Design** | LOW | 1 | data-modeling |
 | **Cross-System Join Strategy** | LOW | 1 | data-modeling |
 | **Pre-Aggregated Fact for Dashboards** | LOW | 1 | data-modeling |
+| **Data Investigation Before Schema Finalisation** | LOW | 1 | data-modeling |
 | Validate Schema Against API | LOW | 1 | process |
 | Check API Lifecycle First | LOW | 1 | process |
-| Mid-Session Checkpointing | LOW | 2 | process |
+| Mid-Session Checkpointing | LOW | 3 | process |
 | Follow Existing Conventions (Don't Duplicate) | LOW | 1 | process |
-| Markdown-to-Word Pipeline | LOW | 1 | process |
-| Design-on-Paper Before Building | LOW | 2 | process |
+| Markdown-to-Word Pipeline | LOW | 2 | process |
+| Design-on-Paper Before Building | LOW | 3 | process |
 | Shopify Cost Data Location | MEDIUM | 2 | shopify-api |
 | Shopify REST → GraphQL | HIGH | 1 | shopify-api |
 | Shopify Deprecated Scalars → Object | MEDIUM | 1 | shopify-api |
@@ -1128,6 +1164,16 @@ When to promote from MEDIUM → HIGH:
 ---
 
 ## Pattern Review Log
+
+### 2026-02-18 (Report Mapping Analysis)
+- **Reinforced Design-on-Paper Before Building** pattern (uses: 2→3) - report mapping caught 8 schema gaps before code
+- **Reinforced Markdown-to-Word Pipeline** pattern (uses: 1→2) - 07-Report-Mapping-Analysis via convert_to_docx.py
+- **Reinforced Mid-Session Checkpointing** pattern (uses: 2→3) - updated tracking after completing analysis
+- Added **Data Investigation Before Schema Finalisation** pattern - querying CampaignSegmentTbl revealed Campaign is too varied for dim_campaign
+- Key insight: CSV exports can distort data relationships — always query actual rows to understand column combinations
+- Key insight: "Client" in source data maps cleanly to dim_channel; "Campaign" is a sub-classification (VARCHAR attribute, not a dimension)
+- Key insight: Subscription tiers encoded in Campaign name can be parsed into structured fields
+- Created episodic: 2026-02-18-report-mapping-analysis.md
 
 ### 2026-02-18 (DYT Layer 2 Schema Design)
 - **Validated Two-Layer Architecture** pattern (uses: 1→2) - Layer 2 designed successfully on top of Layer 1 using separate schemas

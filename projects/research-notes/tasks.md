@@ -22,9 +22,10 @@
 ## Backlog
 
 ### Schema & Design (Layer 2 - DYT Specific)
-- [ ] Inspect SQL Server schema to confirm DYT_STG column names
+- [ ] Update schema-dyt.md with report mapping findings (campaign_name, subscription parsing, is_marketing, breakage, overspend, is_dual_redemption)
+- [ ] Clarify billing/cost data source for Report 18 (team discussion needed)
+- [ ] Verify membership tiers in Shopify discount code names (during ETL build)
 - [ ] Validate gift card join strategy with real data (Shopify GID vs last 4 chars)
-- [ ] Add DYT-specific metrics definitions (pending report descriptions from Dominic)
 - [ ] Assess which Layer 2 elements could be productized for the core product
 
 ### ETL Implementation
@@ -88,6 +89,20 @@
 ## Completed
 
 ### Week of 2026-02-17
+
+- [x] Analyse 38 existing DYT reports against Layer 2 schema
+  **Priority:** HIGH | **Added:** 2026-02-18 | **Completed:** 2026-02-18
+  **Created:** report-mapping-analysis.md with coverage mapping, 11 Q&A items, CampaignSegmentTbl analysis
+  **Key findings:** Client = dim_channel, Campaign = attribute on dim_voucher, subscription tiers encoded in Campaign name
+  **Open:** Billing/cost data source (Q4), membership tiers (Q6)
+
+- [x] Query and analyse CampaignSegmentTbl Campaign-Client relationships
+  **Priority:** HIGH | **Added:** 2026-02-18 | **Completed:** 2026-02-18
+  **Finding:** ~30+ real business clients, Campaign is sub-classification (not a standalone dimension)
+  **Data quality:** Refund tracking uses two inconsistent patterns, Marketing is catch-all for internal vouchers
+
+- [x] Generate Word document for report mapping analysis (07-Report-Mapping-Analysis.docx)
+  **Priority:** NORMAL | **Added:** 2026-02-18 | **Completed:** 2026-02-18
 
 - [x] Design DYT Layer 2 B2B2C voucher & channel schema
   **Priority:** HIGH | **Added:** 2026-02-18 | **Completed:** 2026-02-18
