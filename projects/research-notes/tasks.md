@@ -1,7 +1,7 @@
 # Tasks
 
 **Project:** Shopify DWH
-**Last Updated:** 2026-02-04
+**Last Updated:** 2026-02-18
 
 ---
 
@@ -22,7 +22,10 @@
 ## Backlog
 
 ### Schema & Design (Layer 2 - DYT Specific)
-- [ ] Design DYT-specific customization layer (voucher tracking, B2B2C attribution, Gamatek integration)
+- [ ] Inspect SQL Server schema to confirm DYT_STG column names
+- [ ] Validate gift card join strategy with real data (Shopify GID vs last 4 chars)
+- [ ] Add DYT-specific metrics definitions (pending report descriptions from Dominic)
+- [ ] Assess which Layer 2 elements could be productized for the core product
 
 ### ETL Implementation
 - [ ] Set up ETL project structure on Linux server
@@ -40,6 +43,7 @@
   - [ ] stg_locations
   - [ ] stg_inventory_levels
   - [ ] stg_abandoned_checkouts
+  - [ ] stg_gift_cards
 - [ ] Build STG → DWH transforms:
   - [ ] Pivot payments/taxes/discounts → fact_order
   - [ ] Denormalize → fact_order_line_item
@@ -51,6 +55,18 @@
   - [ ] Generate dim_date, dim_time
 - [ ] Configure systemd timers
 - [ ] Add error handling & monitoring
+
+### ETL Implementation (Layer 2 - DYT)
+- [ ] Set up SQL Server connection and extraction for DYT_STG
+- [ ] Build DYT_STG loaders:
+  - [ ] stg_channels (from SQL Server)
+  - [ ] stg_voucher_inventory (from SQL Server)
+  - [ ] stg_voucher_distributions (from SQL Server)
+- [ ] Build DYT_DWH transforms:
+  - [ ] dim_channel ← stg_channels
+  - [ ] dim_voucher ← stg_voucher_inventory + distributions + Shopify data
+  - [ ] fact_voucher_lifecycle ← all sources joined
+  - [ ] fact_channel_daily ← aggregation of fact_voucher_lifecycle
 
 ### Productization (Configuration-Driven)
 - [ ] Define configuration schema (YAML structure) for deployment_config.yaml
@@ -70,6 +86,28 @@
 ---
 
 ## Completed
+
+### Week of 2026-02-17
+
+- [x] Design DYT Layer 2 B2B2C voucher & channel schema
+  **Priority:** HIGH | **Added:** 2026-02-18 | **Completed:** 2026-02-18
+  **Created:** schema-dyt.md with 3 DYT_STG tables, 2 dimensions, 2 facts, 22 metrics
+  **Schemas:** DYT_STG (SQL Server source) + DYT_DWH (channel-centric analytics)
+
+- [x] Add stg_gift_cards to Layer 1 schema (gap fill)
+  **Priority:** HIGH | **Added:** 2026-02-18 | **Completed:** 2026-02-18
+  **Added:** stg_gift_cards to SHOPIFY_STG in schema-layered.md (14 columns from giftCards API)
+  **Note:** Shopify masks full gift card codes - only last 4 chars available via API
+
+- [x] Document Layer 2 join strategy (Shopify ↔ SQL Server)
+  **Priority:** HIGH | **Added:** 2026-02-18 | **Completed:** 2026-02-18
+  **Documented:** Discount code join (direct code match), gift card join (3 options with confidence levels)
+
+- [x] Define 22 DYT-specific metrics (voucher funnel, channel financial, timing, subscription)
+  **Priority:** NORMAL | **Added:** 2026-02-18 | **Completed:** 2026-02-18
+  **Categories:** Voucher funnel (7), Channel financial (6), Timing (3), Subscription (3), Distribution (3)
+
+---
 
 ### Week of 2026-02-03
 

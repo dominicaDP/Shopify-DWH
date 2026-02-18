@@ -3,7 +3,7 @@
 **Project Type:** Work
 **Status:** Active
 **Priority:** HIGH
-**Last Updated:** 2026-01-30
+**Last Updated:** 2026-02-18
 
 ---
 
@@ -234,12 +234,35 @@ All to be included in holistic design, worked sequentially:
 - Averages (AOV, Units per Order)
 - Volume metrics
 
-### Layer 2 (DYT-Specific) - Not Started
-- Voucher complexity and B2B2C attribution
-- Gamatek fulfillment integration
-- Corporate client tracking
-- fact_fulfillment (carrier analytics - if needed)
-- fact_inventory_snapshot (stock levels - if needed)
+### Layer 2 (DYT-Specific) - Schema Design Complete
+
+**Schema designed (2026-02-18):** See [schema-dyt.md](schema-dyt.md)
+
+**DYT_STG (3 tables from SQL Server):**
+- `stg_channels` - Channel/client master
+- `stg_voucher_inventory` - Voucher creation and allocation (contains full voucher code)
+- `stg_voucher_distributions` - Distribution instructions and SMS delivery
+
+**DYT_DWH (2 dimensions + 2 facts):**
+- `dim_channel` - Channel dimension with contract dates
+- `dim_voucher` - Central dimension unifying gift cards + discount codes with channel ownership
+- `fact_voucher_lifecycle` - Full lifecycle per voucher (create → distribute → redeem)
+- `fact_channel_daily` - Pre-aggregated channel metrics for dashboards
+
+**Layer 1 gap filled:**
+- `stg_gift_cards` added to SHOPIFY_STG (needed for gift card voucher joins)
+
+**Key design decisions:**
+- Separate schemas (DYT_STG / DYT_DWH) - Layer 1 untouched
+- voucher_code is the join key between SQL Server and Shopify
+- Channel-centric analytics lens
+- 22 DYT-specific metrics defined
+
+**Open items (before implementation):**
+- Inspect SQL Server schema to confirm actual column names
+- Validate gift card join strategy with real data
+- Add DYT-specific metrics from report descriptions
+- Gamatek fulfillment integration (future phase)
 
 ### Finance Approach
 - Transaction value "as if cash"
@@ -298,6 +321,7 @@ All to be included in holistic design, worked sequentially:
 - [productization-strategy.md](productization-strategy.md) - Configuration-driven deployment
 - [implementation-guide.md](implementation-guide.md) - ETL implementation reference
 - [notes.md](notes.md) - Research notes
+- [schema-dyt.md](schema-dyt.md) - DYT Layer 2 B2B2C voucher & channel schema
 - [schema.md](schema.md) - Original schema (superseded by schema-layered.md)
 
 ### External

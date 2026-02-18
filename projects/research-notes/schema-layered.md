@@ -424,6 +424,31 @@ Mirrors Shopify API structure exactly. One table per API object.
 
 ---
 
+## stg_gift_cards
+
+**Source:** `giftCards` query → `GiftCard` object
+
+| Column | Shopify Field | Type | Description |
+|--------|---------------|------|-------------|
+| id | id | VARCHAR(50) | Gift card GID |
+| code | lastCharacters | VARCHAR(10) | Last 4 chars (Shopify masks full code) |
+| initial_value | initialValue.amount | DECIMAL(18,2) | Original value |
+| balance | balance.amount | DECIMAL(18,2) | Current balance |
+| currency_code | initialValue.currencyCode | VARCHAR(5) | Currency |
+| enabled | enabled | BOOLEAN | Active flag |
+| expires_on | expiresOn | DATE | Expiry date |
+| created_at | createdAt | TIMESTAMP | Creation time |
+| updated_at | updatedAt | TIMESTAMP | Last update |
+| disabled_at | disabledAt | TIMESTAMP | Disabled time |
+| customer_id | customer.id | VARCHAR(50) | Associated customer GID |
+| order_id | order.id | VARCHAR(50) | Order that created it (if purchased) |
+| note | note | TEXT | Notes |
+| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+
+**Important limitation:** Shopify masks gift card codes - only `lastCharacters` (last 4 digits) is available via the API. The full voucher code lives in external systems (e.g., SQL Server for DYT). This is a key consideration for Layer 2 join strategy.
+
+---
+
 # DATA WAREHOUSE SCHEMA (SHOPIFY_DWH)
 
 Reporting-optimized with pivoted arrays, denormalized attributes, and user-friendly names.
@@ -983,6 +1008,9 @@ inventoryLevels ─────────────► stg_inventory_levels 
 abandonedCheckouts ──────────► stg_abandoned_checkouts ────────────────► (analytics/reporting)
 
 
+giftCards ──────────────────► stg_gift_cards ─────────────────────────► (Layer 2: DYT_DWH)
+
+
 (generated) ─────────────────────────────────────────────────────────────► dim_date
                                                                           dim_time
 ```
@@ -1131,6 +1159,7 @@ order_id | discount_1_code | discount_1_type | discount_1_amount | discount_2_co
 | **STG** | stg_fulfillments | ~13 | Row per shipment |
 | **STG** | stg_refunds | ~6 | Row per refund |
 | **STG** | stg_inventory_levels | ~11 | Row per item×location |
+| **STG** | stg_gift_cards | ~14 | Row per gift card |
 | **DWH** | fact_order | ~75 | Pivoted + denormalized + channel |
 | **STG** | stg_order_line_items | ~19 | Raw line items |
 | **DWH** | fact_order_line_item | ~35 | + denormalized attributes |
@@ -1428,6 +1457,7 @@ This section provides complete traceability from business metrics to their under
 | **stg_refund_line_items** | ✓ NEW | Product Return Rate, Restock Analysis |
 | **stg_inventory_levels** | ✓ NEW | Stock Levels, Inventory Valuation |
 | **stg_abandoned_checkouts** | ✓ NEW | Cart Abandonment Rate, Recovery |
+| **stg_gift_cards** | ✓ NEW | Gift card balances, Layer 2 voucher join |
 
 ### DWH Layer Coverage
 

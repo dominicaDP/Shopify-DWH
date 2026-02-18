@@ -210,6 +210,7 @@ def main():
         '03-Warehouse-Schema.md',
         '04-Data-Lineage.md',
         '05-Metrics-Reference.md',
+        '06-DYT-Layer2-Schema.md',
     ]
 
     for md_file in md_files:

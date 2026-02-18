@@ -1,6 +1,6 @@
 # Development Patterns
 
-**Last Updated:** 2026-01-30
+**Last Updated:** 2026-02-18
 
 ---
 
@@ -23,9 +23,9 @@ Patterns extracted from development work across all projects. These are reusable
 ### Two-Layer Architecture (Generic + Custom)
 
 **Confidence:** LOW
-**Uses:** 1
+**Uses:** 2
 **Category:** architecture
-**Last Used:** 2026-01-29
+**Last Used:** 2026-02-18
 
 **When to use:**
 Building a solution that needs to be both productizable (sellable to others) AND customizable for specific client needs.
@@ -53,8 +53,12 @@ Layer 2: Custom Extensions (Client-specific)
 - More upfront design effort
 - Must resist putting client-specific logic in Layer 1
 
+**2026-02-18 Validation:**
+Layer 2 (DYT-specific) successfully designed on top of Layer 1 (generic Shopify) using separate schemas (DYT_STG / DYT_DWH). Layer 1 was untouched. dim_voucher unifies Shopify gift cards and discount codes with SQL Server channel data. Confirms the pattern works for multi-source extensions too.
+
 **Related Episodes:**
 - memory/episodic/completed-work/2026-01-29-product-api-research.md
+- memory/episodic/completed-work/2026-02-18-dyt-layer2-schema-design.md
 
 ---
 
@@ -845,6 +849,213 @@ Designing or validating a data warehouse schema to ensure it can support all req
 
 ---
 
+### Cross-System Join Strategy (Shared Business Key)
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** data-modeling
+**Last Used:** 2026-02-18
+
+**When to use:**
+Building a DWH that needs to join data from two or more independent systems that share a common business entity but have different data models.
+
+**Pattern:**
+Identify a shared business key that exists in both systems and design the join around it.
+
+**Example (Shopify + SQL Server):**
+```
+SQL Server                    Shopify
+==========                    =======
+voucher_code (full)    ←→     discount_applications.code
+shopify_id             ←→     gift_cards.id
+```
+
+**Key Considerations:**
+1. **Data quality of the key** - Is it reliably populated in both systems? Formatted consistently?
+2. **Key masking** - One system may mask the key (Shopify masks gift card codes to last 4 chars)
+3. **Fallback joins** - If primary key is unreliable, identify secondary join paths
+4. **Confidence rating** - Rate each join path (HIGH/MEDIUM/LOW) and document assumptions
+
+**Join Confidence Framework:**
+| Confidence | Criteria | Example |
+|------------|----------|---------|
+| HIGH | Direct string match, always populated | Discount code → order discount application |
+| MEDIUM | System ID cross-reference, usually populated | Shopify GID stored in SQL Server |
+| LOW | Indirect matching, may have gaps | Transaction gateway matching, partial code |
+
+**Benefits:**
+- Forces explicit documentation of integration assumptions
+- Identifies data quality risks before implementation
+- Enables validation queries to verify join integrity
+
+**Trade-offs:**
+- Multiple join strategies add ETL complexity
+- May need data quality monitoring in production
+- Fallback joins can be slower
+
+**Source:** DYT Layer 2 schema design (Shopify + SQL Server integration)
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-02-18-dyt-layer2-schema-design.md
+
+---
+
+### Pre-Aggregated Fact for Dashboard Performance
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** data-modeling
+**Last Used:** 2026-02-18
+
+**When to use:**
+Building dashboards that need fast aggregations with running totals, rates, or cumulative metrics over a high-volume detail table.
+
+**Pattern:**
+Create a pre-aggregated fact table at a coarser grain (e.g., entity + day) alongside the detail fact table.
+
+**Structure:**
+```
+fact_voucher_lifecycle    (detail: 1 row per voucher)
+        ↓ aggregate
+fact_channel_daily        (summary: 1 row per channel per day)
+```
+
+**What to pre-aggregate:**
+- Daily counts (created, distributed, redeemed)
+- Daily financial sums (face value, revenue)
+- Running totals (cumulative created, distributed, redeemed)
+- Derived rates (distribution rate, redemption rate)
+- Outstanding balances (distributed - redeemed)
+
+**Benefits:**
+- Dashboard queries avoid scanning millions of detail rows
+- Running totals computed once during ETL, not on every query
+- Enables fast "Channel X performance" dashboards
+- Reduces BI tool compute requirements
+
+**When NOT to use:**
+- Detail table is small enough for real-time aggregation
+- Requirements change frequently (pre-agg is rigid)
+- No clear primary aggregation grain
+
+**Source:** DYT Layer 2 schema design
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-02-18-dyt-layer2-schema-design.md
+
+---
+
+### Follow Existing Project Conventions (Don't Duplicate)
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** process
+**Last Used:** 2026-02-18
+
+**When to use:**
+Adding new artifacts (files, documents, configs) to an existing project.
+
+**Rule:**
+Before creating a new file, check how similar files are already organized. Follow the existing pattern - don't create duplicates in a "more convenient" location.
+
+**Anti-pattern (what happened):**
+```
+for-word/06-DYT-Layer2-Schema.docx    ← correct (follows convention)
+DYT-Layer2-Schema-Design.docx         ← duplicate (unnecessary copy)
+```
+
+**Correct approach:**
+1. Check existing file organization (`ls`, `Glob`)
+2. Identify the convention (naming, folder structure, numbering)
+3. Add your file following that convention
+4. Don't create "convenience copies" elsewhere
+
+**Key insight:**
+One file in the right place is always better than two files in two places. Duplicates create confusion about which is canonical and drift over time.
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-02-18-dyt-layer2-schema-design.md
+
+---
+
+### Markdown-to-Word Pipeline for Design Review
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** process
+**Last Used:** 2026-02-18
+
+**When to use:**
+Producing Word documents for stakeholder review from technical design work that's authored in markdown.
+
+**Workflow:**
+```
+1. Author content in markdown (version-controlled, diff-friendly)
+2. Use python-docx conversion script to generate .docx
+3. Review/share the Word document
+4. Edits go back into the markdown source (source of truth)
+```
+
+**Project setup:**
+```
+for-word/
+├── 01-Architecture-Overview.md     ← source files
+├── 02-Staging-Schema.md
+├── ...
+├── convert_to_docx.py              ← conversion script
+├── 01-Architecture-Overview.docx   ← generated output
+├── ...
+```
+
+**Benefits:**
+- Markdown is the source of truth (version-controlled)
+- Word docs are generated artifacts, not hand-authored
+- Consistent formatting across all documents
+- Easy to regenerate after edits
+
+**Key detail:**
+When adding a new document, update both the markdown source AND the `md_files` list in `convert_to_docx.py`.
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-02-18-dyt-layer2-schema-design.md
+
+---
+
+### Design-on-Paper Before Building
+
+**Confidence:** LOW
+**Uses:** 2
+**Category:** process
+**Last Used:** 2026-02-18
+
+**When to use:**
+Building data infrastructure (schemas, ETL, APIs) where the design has significant downstream impact.
+
+**Approach:**
+1. Document the full schema design in markdown/Word
+2. Include table definitions, data flows, join strategies, metrics
+3. Review with stakeholders before writing any code
+4. Iterate on paper (cheap) not in code (expensive)
+
+**Benefits:**
+- Catches design issues before implementation
+- Stakeholder alignment on scope and approach
+- Creates documentation as a byproduct (not an afterthought)
+- Changes on paper are free; changes in code are costly
+
+**Validated twice:**
+- Layer 1 (generic Shopify DWH): 17 STG + 12 DWH tables designed on paper, reviewed, then built
+- Layer 2 (DYT B2B2C): 3 STG + 4 DWH tables designed on paper with join strategy and metrics
+
+**Key insight:**
+The design review catches things implementation never would - like the gift card code masking issue that affects join strategy. Better to discover this on paper than mid-ETL build.
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-01-30-schema-layered-design.md
+- memory/episodic/completed-work/2026-02-18-dyt-layer2-schema-design.md
+
+---
+
 ## Anti-Patterns
 
 ### Building on Deprecated APIs
@@ -873,16 +1084,21 @@ Designing or validating a data warehouse schema to ensure it can support all req
 
 | Pattern | Confidence | Uses | Category |
 |---------|------------|------|----------|
-| Two-Layer Architecture (Generic + Custom) | LOW | 1 | architecture |
+| Two-Layer Architecture (Generic + Custom) | LOW | 2 | architecture |
 | Architecture Selection (Warehouse vs Lakehouse) | LOW | 1 | architecture |
 | Two-Layer DWH Architecture (STG + DWH) | LOW | 1 | data-modeling |
 | Star Schema for Single Source | LOW | 1 | data-modeling |
 | Pivot Transformation (Rows to Columns) | LOW | 1 | data-modeling |
 | Variant-Level Grain | LOW | 1 | data-modeling |
 | **Metrics-Driven Schema Design** | LOW | 1 | data-modeling |
+| **Cross-System Join Strategy** | LOW | 1 | data-modeling |
+| **Pre-Aggregated Fact for Dashboards** | LOW | 1 | data-modeling |
 | Validate Schema Against API | LOW | 1 | process |
 | Check API Lifecycle First | LOW | 1 | process |
 | Mid-Session Checkpointing | LOW | 2 | process |
+| Follow Existing Conventions (Don't Duplicate) | LOW | 1 | process |
+| Markdown-to-Word Pipeline | LOW | 1 | process |
+| Design-on-Paper Before Building | LOW | 2 | process |
 | Shopify Cost Data Location | MEDIUM | 2 | shopify-api |
 | Shopify REST → GraphQL | HIGH | 1 | shopify-api |
 | Shopify Deprecated Scalars → Object | MEDIUM | 1 | shopify-api |
@@ -912,6 +1128,17 @@ When to promote from MEDIUM → HIGH:
 ---
 
 ## Pattern Review Log
+
+### 2026-02-18 (DYT Layer 2 Schema Design)
+- **Validated Two-Layer Architecture** pattern (uses: 1→2) - Layer 2 designed successfully on top of Layer 1 using separate schemas
+- Added **Cross-System Join Strategy** pattern - using shared business keys to bridge SQL Server and Shopify
+- Added **Pre-Aggregated Fact for Dashboards** pattern - fact_channel_daily for fast channel reporting
+- Added **Follow Existing Conventions** pattern - learned from creating unnecessary duplicate docx file
+- Added **Markdown-to-Word Pipeline** pattern - author in markdown, generate docx via python-docx
+- Added **Design-on-Paper Before Building** pattern (uses: 2) - validated across both Layer 1 and Layer 2
+- Key insight: When systems mask data (Shopify gift card codes), document multiple join strategies with confidence levels
+- Key insight: One file in the right place beats two files in two places
+- Created episodic: 2026-02-18-dyt-layer2-schema-design.md
 
 ### 2026-02-04 (Metrics Gap Analysis)
 - Added **Metrics-Driven Schema Design** pattern - work backwards from metrics to data
