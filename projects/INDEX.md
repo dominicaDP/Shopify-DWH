@@ -1,12 +1,13 @@
 # Projects Index
 
-**Last Updated:** 2026-01-29
+**Last Updated:** 2026-03-06
 
 ## Active Projects
 
 | Project | Type | Status | Priority | Health |
 |---------|------|--------|----------|--------|
 | research-notes | Work | Active | HIGH | Healthy |
+| dyt-dwh | Work | Active | HIGH | Healthy |
 
 ## Project Health Legend
 
@@ -40,6 +41,30 @@
 - Consolidated project context and vision (2026-01-29)
 - Defined two-layer architecture (generic + custom)
 - Established scope: Orders & Finance first
+
+---
+
+### dyt-dwh (DYT Data Warehouse)
+
+**Type:** Work
+**Status:** Active
+**Priority:** HIGH
+**Health:** Healthy
+
+**Quick Links:**
+- [Context](./dyt-dwh/context.md)
+- [Design](./dyt-dwh/design.md)
+- [Tasks](./dyt-dwh/tasks.md)
+- [Patterns](./dyt-dwh/patterns.md)
+
+**Current Focus:**
+- Consolidated DYT-specific DWH design (independent of productised Shopify DWH)
+- Schema updates with resolved report mapping findings
+- ETL implementation planning
+
+**Recent Activity:**
+- Created project with consolidated design document (2026-03-06)
+- Resolved Q4 (billing), Q6 (membership), deferred promo pricing (2026-03-06)
 
 ---
 

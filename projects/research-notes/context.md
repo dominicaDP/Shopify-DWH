@@ -179,11 +179,19 @@ Not implemented (backlogged):
 - Starting domains: **Orders** and **Finance**
 - Research data modeling approaches
 
-### Later Phases
-- Reporting definitions
-- Additional domains (Products, Inventory, Customers, Fulfillment)
-- DYT-specific customization layer
-- Market/competitive analysis
+### Phase 2: ETL Implementation
+- Build STG loaders (Shopify GraphQL bulk operations)
+- Build DWH transforms (STG -> star schema)
+- systemd timers, error handling, monitoring
+
+### Phase 3: Productisation
+- Configuration-driven schema/ETL generation
+- Auto-discovery, validation, deployment automation
+
+### Phase 4: Natural Language Analytics (Exploration)
+- Self-hosted LLM via Exasol Python UDFs + Ollama
+- Natural language queries, data summarisation, anomaly narration
+- See [nl-analytics-exploration.md](nl-analytics-exploration.md) for detailed exploration
 
 ### Current Scope Boundaries
 | In Scope | Out of Scope (for now) |
@@ -234,43 +242,14 @@ All to be included in holistic design, worked sequentially:
 - Averages (AOV, Units per Order)
 - Volume metrics
 
-### Layer 2 (DYT-Specific) - Schema Design Complete
+### Layer 2 (DYT-Specific) — Moved to Separate Project
 
-**Schema designed (2026-02-18):** See [schema-dyt.md](schema-dyt.md)
+**DYT-specific design is now in the `dyt-dwh` project.** See [../dyt-dwh/design.md](../dyt-dwh/design.md) for the consolidated single source of truth.
 
-**DYT_STG (3 tables from SQL Server):**
-- `stg_channels` - Channel/client master
-- `stg_voucher_inventory` - Voucher creation and allocation (contains full voucher code)
-- `stg_voucher_distributions` - Distribution instructions and SMS delivery
+Original research files (`schema-dyt.md`, `report-mapping-analysis.md`) remain here as historical reference.
 
-**DYT_DWH (2 dimensions + 2 facts):**
-- `dim_channel` - Channel dimension with contract dates
-- `dim_voucher` - Central dimension unifying gift cards + discount codes with channel ownership
-- `fact_voucher_lifecycle` - Full lifecycle per voucher (create → distribute → redeem)
-- `fact_channel_daily` - Pre-aggregated channel metrics for dashboards
-
-**Layer 1 gap filled:**
+**Layer 1 gap filled during DYT research:**
 - `stg_gift_cards` added to SHOPIFY_STG (needed for gift card voucher joins)
-
-**Key design decisions:**
-- Separate schemas (DYT_STG / DYT_DWH) - Layer 1 untouched
-- voucher_code is the join key between SQL Server and Shopify
-- Channel-centric analytics lens
-- 22 DYT-specific metrics defined
-
-**Report mapping analysis complete (2026-02-18):** See [report-mapping-analysis.md](report-mapping-analysis.md)
-- Mapped all 38 existing DYT reports against Layer 2 schema
-- 13 reports well covered, 8 partially covered, 5 need new concepts
-- 11 questions identified and answered (8 resolved, 3 partially open)
-- CampaignSegmentTbl fully analysed: Client = dim_channel, Campaign = attribute on dim_voucher
-- Schema refinements identified: campaign_name, subscription parsing, is_marketing flag, breakage, overspend, is_dual_redemption
-
-**Open items (before implementation):**
-- Clarify billing/cost data source for Report 18 (Provisional Billing) — team discussion needed
-- Verify membership tiers (Standard Bank) in Shopify discount code names during ETL build
-- Validate gift card join strategy with real data
-- Update schema-dyt.md with confirmed report mapping findings
-- Gamatek fulfillment integration (future phase)
 
 ### Finance Approach
 - Transaction value "as if cash"

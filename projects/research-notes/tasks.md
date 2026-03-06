@@ -1,7 +1,7 @@
 # Tasks
 
 **Project:** Shopify DWH
-**Last Updated:** 2026-02-18
+**Last Updated:** 2026-03-06
 
 ---
 
@@ -21,14 +21,7 @@
 
 ## Backlog
 
-### Schema & Design (Layer 2 - DYT Specific)
-- [ ] Update schema-dyt.md with report mapping findings (campaign_name, subscription parsing, is_marketing, breakage, overspend, is_dual_redemption)
-- [ ] Clarify billing/cost data source for Report 18 (team discussion needed)
-- [ ] Verify membership tiers in Shopify discount code names (during ETL build)
-- [ ] Validate gift card join strategy with real data (Shopify GID vs last 4 chars)
-- [ ] Assess which Layer 2 elements could be productized for the core product
-
-### ETL Implementation
+### ETL Implementation (Layer 1 — Generic Shopify)
 - [ ] Set up ETL project structure on Linux server
 - [ ] Implement Shopify GraphQL client wrapper
 - [ ] Implement PyExasol loader utilities
@@ -57,18 +50,6 @@
 - [ ] Configure systemd timers
 - [ ] Add error handling & monitoring
 
-### ETL Implementation (Layer 2 - DYT)
-- [ ] Set up SQL Server connection and extraction for DYT_STG
-- [ ] Build DYT_STG loaders:
-  - [ ] stg_channels (from SQL Server)
-  - [ ] stg_voucher_inventory (from SQL Server)
-  - [ ] stg_voucher_distributions (from SQL Server)
-- [ ] Build DYT_DWH transforms:
-  - [ ] dim_channel ← stg_channels
-  - [ ] dim_voucher ← stg_voucher_inventory + distributions + Shopify data
-  - [ ] fact_voucher_lifecycle ← all sources joined
-  - [ ] fact_channel_daily ← aggregation of fact_voucher_lifecycle
-
 ### Productization (Configuration-Driven)
 - [ ] Define configuration schema (YAML structure) for deployment_config.yaml
 - [ ] Build schema generator (Jinja2-based DDL from config)
@@ -76,6 +57,17 @@
 - [ ] Create auto-discovery script (extract payment methods, tax types from Shopify)
 - [ ] Config validation tool
 - [ ] Deployment automation scripts
+
+### Phase 4: Natural Language Analytics (Exploration)
+- [ ] Phase 4a: Install Ollama + Mistral 7B on Exasol Linux server
+- [ ] Phase 4a: Create POC — channel performance summarisation UDF
+- [ ] Phase 4a: Test NL-to-SQL with schema context injection
+- [ ] Phase 4b: Enable Yellowfin Assisted Insights + Signals, gather user feedback (2-4 weeks)
+- [ ] Phase 4b: Log questions YF can't answer (gap evidence for Claude MCP)
+- [ ] Phase 4c: Build MCP server (PyExasol, PII blocklist, role-based filtering)
+- [ ] Phase 4c: Build FastAPI backend with Claude API + MCP connector
+- [ ] Phase 4c: Build web page with YF embed + collapsible chat panel
+- [ ] See: [nl-analytics-exploration.md](nl-analytics-exploration.md)
 
 ### Other
 - [ ] Market opportunity analysis
@@ -87,6 +79,32 @@
 ---
 
 ## Completed
+
+### Week of 2026-03-03
+
+- [x] Create elevator pitch for Exasol event
+  **Priority:** NORMAL | **Added:** 2026-03-06 | **Completed:** 2026-03-06
+  **Created:** elevator-pitch.md + Elevator-Pitch-Shopify-DWH.docx
+  **Audience:** Mixed tech/business, 60-90 seconds, with key stats and Q&A follow-ups
+
+- [x] Create dyt-dwh project (separate from research-notes)
+  **Priority:** HIGH | **Added:** 2026-03-06 | **Completed:** 2026-03-06
+  **Created:** dyt-dwh/context.md, design.md, tasks.md, patterns.md
+  **Decision:** Layer 2 requirements independent of productisable Layer 1
+
+- [x] Resolve open questions from report mapping (Q4 billing, Q6 membership)
+  **Priority:** HIGH | **Added:** 2026-03-06 | **Completed:** 2026-03-06
+  **Q4:** Commission rates from Finance spreadsheets → ref_commission_rate table
+  **Q6:** Standard Bank tiers are customer tags in Shopify → membership_tier on dim_customer
+
+- [x] Explore Phase 4 NL analytics architecture (Ollama + Claude MCP + Web Interface)
+  **Priority:** NORMAL | **Added:** 2026-03-06 | **Completed:** 2026-03-06
+  **Created:** nl-analytics-exploration.md — comprehensive exploration document
+  **Covers:** Ollama UDFs (3 use cases), Claude MCP (POPIA tiered model, MCP server design, safety controls), Web Interface (YF embed + chat panel, report context passing, role-based access), YF native AI assessment
+  **Key decision:** Phased approach — Ollama first, then YF native evaluation, then Claude MCP for proven gaps
+  **Cost estimate:** Claude API ~$5-60/month depending on usage
+
+---
 
 ### Week of 2026-02-17
 

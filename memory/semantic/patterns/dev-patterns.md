@@ -1,6 +1,6 @@
 # Development Patterns
 
-**Last Updated:** 2026-02-18
+**Last Updated:** 2026-03-06
 
 ---
 
@@ -1058,9 +1058,9 @@ Designing schema from data dictionaries or CSV column summaries without querying
 ### Design-on-Paper Before Building
 
 **Confidence:** LOW
-**Uses:** 3
+**Uses:** 4
 **Category:** process
-**Last Used:** 2026-02-18
+**Last Used:** 2026-03-06
 
 **When to use:**
 Building data infrastructure (schemas, ETL, APIs) where the design has significant downstream impact.
@@ -1077,10 +1077,11 @@ Building data infrastructure (schemas, ETL, APIs) where the design has significa
 - Creates documentation as a byproduct (not an afterthought)
 - Changes on paper are free; changes in code are costly
 
-**Validated three times:**
+**Validated four times:**
 - Layer 1 (generic Shopify DWH): 17 STG + 12 DWH tables designed on paper, reviewed, then built
 - Layer 2 (DYT B2B2C): 3 STG + 4 DWH tables designed on paper with join strategy and metrics
 - Report mapping analysis: Mapping 38 reports against schema caught 8 gaps and data quality issues before any code
+- Phase 4 NL Analytics: Full architecture (Ollama + Claude MCP + Web Interface + POPIA tiers) designed on paper with code examples, cost estimates, and YF assessment — before writing any production code
 
 **Key insight:**
 The design review catches things implementation never would - like the gift card code masking issue that affects join strategy. Better to discover this on paper than mid-ETL build.
@@ -1088,6 +1089,129 @@ The design review catches things implementation never would - like the gift card
 **Related Episodes:**
 - memory/episodic/completed-work/2026-01-30-schema-layered-design.md
 - memory/episodic/completed-work/2026-02-18-dyt-layer2-schema-design.md
+
+---
+
+### Evaluate Existing Tools Before Building New Ones
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** process
+**Last Used:** 2026-03-06
+
+**When to use:**
+Planning to build a new capability (e.g., NL analytics, dashboarding, alerting) in a system where existing tools may already cover part of the need.
+
+**Steps:**
+1. Inventory what your existing tools already do (even features you haven't enabled)
+2. Enable and test those features with real users (2-4 weeks)
+3. Log the specific questions/tasks the existing tools can't handle
+4. Build only for the proven gaps — not speculative ones
+
+**Example (Yellowfin vs Claude MCP):**
+- YF has Assisted Insights, Guided NLQ, Signals — covers "what changed?"
+- YF can't do: conversational follow-up, cross-table reasoning, business-context narratives, advisory
+- Decision: Enable YF native first, log gaps, then build Claude MCP for proven gaps only
+
+**Benefits:**
+- Avoids building features that already exist
+- Evidence-based scope (build what's needed, not what's cool)
+- Lower risk — existing tools are already deployed and understood
+- Saves weeks of development on features users might not need
+
+**Key insight:**
+"Will this be useful?" is the wrong question. "What specific questions can't be answered today?" is the right one. Gather evidence first.
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-03-06-dyt-project-creation.md
+
+---
+
+### POPIA-Compliant Tiered Architecture (Cloud + On-Prem)
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** architecture
+**Last Used:** 2026-03-06
+
+**When to use:**
+Building AI/analytics features that process data with mixed sensitivity levels, where some data contains PII and regulatory constraints (POPIA, GDPR) apply.
+
+**Pattern:**
+Split processing into tiers based on data sensitivity:
+
+```
+Tier 1: Cloud API (e.g., Claude)
+├── Non-PII data only
+├── Aggregated metrics (channel/product/day level)
+├── Business entity data (companies, not people)
+├── PII table blocklist enforced server-side
+│
+Tier 2: On-premises (e.g., Ollama)
+├── All data including PII
+├── Customer records, personal contact info
+├── Order-level data with customer references
+├── Data never leaves infrastructure
+```
+
+**Enforcement:**
+- PII table blocklist in MCP server / API layer (not client-side)
+- SELECT-only validation (no writes via cloud path)
+- Role-based access controls
+- Query logging for audit
+
+**Benefits:**
+- Unlocks cloud AI capabilities for non-sensitive analytics
+- PII stays on-prem (POPIA/GDPR compliant)
+- Best of both worlds: Claude quality for exploration, Ollama for PII data
+- Clear boundary — easy to audit and explain to compliance
+
+**Trade-offs:**
+- Two systems to maintain (Ollama + Claude API)
+- Users need to understand which questions go where (or abstract it away)
+- Blocklist must be maintained as schema evolves
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-03-06-dyt-project-creation.md
+
+---
+
+### Evidence-Based Feature Building
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** process
+**Last Used:** 2026-03-06
+
+**When to use:**
+Deciding whether to build a new feature or capability, especially when the need is based on assumption rather than observed user behaviour.
+
+**Rule:**
+Don't build for speculative gaps. Gather evidence of the gap first, then build to fill it.
+
+**Process:**
+```
+1. Hypothesise the gap ("users can't answer 'why' questions")
+2. Enable existing alternatives (YF Assisted Insights)
+3. Observe and log failures (2-4 weeks)
+4. Analyse: Which questions genuinely can't be answered?
+5. Build only for the proven, logged gaps
+```
+
+**Anti-pattern:**
+Building a full Claude MCP chat interface because "it would be cool" before confirming that Yellowfin's native NLQ doesn't already cover 80% of the need.
+
+**Benefits:**
+- Builds only what's needed (no wasted effort)
+- Users help define scope by showing you the gaps
+- Easier to justify investment (evidence, not speculation)
+- Often reveals the gap is smaller (or different) than assumed
+
+**Key insight:**
+The architecture can be designed speculatively (cheap). The implementation should be evidence-based (expensive). Design the full solution on paper, but build it in phases driven by real usage gaps.
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-03-06-dyt-project-creation.md
 
 ---
 
@@ -1134,7 +1258,7 @@ The design review catches things implementation never would - like the gift card
 | Mid-Session Checkpointing | LOW | 3 | process |
 | Follow Existing Conventions (Don't Duplicate) | LOW | 1 | process |
 | Markdown-to-Word Pipeline | LOW | 2 | process |
-| Design-on-Paper Before Building | LOW | 3 | process |
+| Design-on-Paper Before Building | LOW | 4 | process |
 | Shopify Cost Data Location | MEDIUM | 2 | shopify-api |
 | Shopify REST → GraphQL | HIGH | 1 | shopify-api |
 | Shopify Deprecated Scalars → Object | MEDIUM | 1 | shopify-api |
@@ -1143,6 +1267,9 @@ The design review catches things implementation never would - like the gift card
 | Shopify Discount Code Structure | LOW | 1 | shopify-api |
 | Shopify MoneyBag Multi-Currency | MEDIUM | 1 | shopify-api |
 | Shopify Bulk Operations for ETL | LOW | 1 | shopify-api |
+| **Evaluate Existing Tools Before Building** | LOW | 1 | process |
+| **POPIA-Compliant Tiered Architecture** | LOW | 1 | architecture |
+| **Evidence-Based Feature Building** | LOW | 1 | process |
 | systemd Timers for Production ETL | LOW | 1 | infrastructure |
 | Exasol Star Schema Optimization | LOW | 1 | exasol |
 
@@ -1164,6 +1291,17 @@ When to promote from MEDIUM → HIGH:
 ---
 
 ## Pattern Review Log
+
+### 2026-03-06 (Elevator Pitch + Phase 4 NL Analytics Exploration)
+- Added **Evaluate Existing Tools Before Building** pattern — check YF native AI before building Claude MCP
+- Added **POPIA-Compliant Tiered Architecture** pattern — cloud for non-PII, on-prem for PII
+- Added **Evidence-Based Feature Building** pattern — gather gap evidence before building features
+- **Reinforced Design-on-Paper Before Building** pattern (uses: 3→4) — full Phase 4 architecture designed on paper before any code
+- Key insight: "Design speculatively (cheap), implement evidence-based (expensive)"
+- Key insight: YF has Assisted Insights + NLQ + Signals — evaluate before building parallel capabilities
+- Key insight: Claude API MCP connector (beta) lets Claude connect to remote MCP server directly — no separate client needed
+- Key insight: Report context passing (active report name + filters + visible metrics) makes chat feel contextual without user having to explain what they're looking at
+- Created episodic: 2026-03-06-dyt-project-creation.md (expanded with Phase 4 work)
 
 ### 2026-02-18 (Report Mapping Analysis)
 - **Reinforced Design-on-Paper Before Building** pattern (uses: 2→3) - report mapping caught 8 schema gaps before code

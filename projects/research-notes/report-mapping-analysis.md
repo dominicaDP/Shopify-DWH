@@ -153,25 +153,19 @@ Need to add breakage metrics to fact_channel_daily and fact_voucher_lifecycle. A
 
 ---
 
-### Q4: Provisional Billing / Margin Calculation (HIGH) - OPEN (Team Discussion Needed)
+### Q4: Provisional Billing / Margin Calculation (HIGH) - ANSWERED
 
 **Reports affected:** 18
 
 **Question:** Where does cost data live for voucher base cost, commission rates, and margin calculations?
 
-**Finding:** The `commission_rate_id` field exists in CampaignSegmentTbl but appears to be unpopulated / "To be defined". The SQL Server database is primarily a Fivetran sync of Shopify data plus CampaignSegmentTbl — there are no separate billing or cost tables.
+**Answer (2026-03-06):** Commission rates are managed manually in spreadsheets by Finance. The `commission_rate_id` field in CampaignSegmentTbl is unpopulated and there are no billing/cost tables in SQL Server.
 
-**Status:** OPEN — Billing/cost data does not appear to exist in the current SQL Server database. This may be:
-- Managed outside the system (spreadsheets, finance system)
-- A new capability that needs to be built into the DWH solution
-- Derived from commission_rate_id once that field is populated
-
-**Action needed:** Team to clarify where Report 18 (Provisional Billing) currently sources its cost data. If it's manual/spreadsheet-based, the DWH solution may need to introduce a commission/billing rate table as a new managed input.
-
-**Schema impact (when clarified):**
-- If rates are per-client: add commission fields to `dim_channel`
-- If rates are per-campaign or per-voucher-type: may need a `dim_billing_rate` or fields on `dim_voucher`
-- Margin calculation: Sales Revenue - (Voucher Face Value * Commission Rate)
+**Schema impact:**
+- Add `ref_commission_rate` reference table to DYT_DWH, loaded from Finance-maintained spreadsheet (CSV/Excel upload)
+- Structure: `channel_key` (FK to dim_channel), `rate_type`, `rate_value`, `effective_from`, `effective_to` (SCD Type 2 for rate history)
+- Margin calculation: Revenue - (Face Value x Commission Rate)
+- ETL will ingest the spreadsheet as a managed reference input
 
 ---
 
@@ -185,7 +179,7 @@ Need to add breakage metrics to fact_channel_daily and fact_voucher_lifecycle. A
 
 ---
 
-### Q6: Membership Tiers (MEDIUM) - PARTIALLY ANSWERED
+### Q6: Membership Tiers (MEDIUM) - ANSWERED
 
 **Reports affected:** 37
 
@@ -201,9 +195,14 @@ Standard Bank has these Campaign values:
 
 Only 6 rows are tagged "Membership". The membership tiers referenced in Report 37 (DYTSquad25, GETDRESSED, Standard Bank 15%/20%/30%/40%/50%, THANKYOU100) are **not visible in CampaignSegmentTbl Campaign names**.
 
-**Status:** PARTIALLY OPEN — Membership tier names likely come from **Shopify discount code names** rather than CampaignSegmentTbl. The tiers probably map to specific discount codes created in Shopify with names like "DYTSquad25", "GETDRESSED", etc. This can be verified during ETL build when we have access to the actual Shopify discount code data.
+**Answer (2026-03-06):** Standard Bank 15%/20%/30%/40%/50% are discount tier levels that exist as **customer-level tags in Shopify** (not discount codes). The tiers are stored in the `tags` field on the Shopify customer record.
 
-**Schema impact:** Membership tiers can likely be derived from the discount code name in Shopify (`stg_discount_codes.title`). No separate membership dimension needed — the tier is an attribute parseable from the voucher/discount code name, similar to how subscription tiers are encoded in Campaign names for Telkom.
+**Schema impact:**
+- Parse `stg_customers.tags` to extract membership tier info
+- Add `membership_tier` attribute to `dim_customer`
+- If customers can hold multiple tier tags, may need a bridge table or pick the highest tier
+- Report 37 joins dim_customer (membership_tier) with fact_order filtered for Standard Bank channel
+- DYTSquad25, GETDRESSED, THANKYOU100 are likely also customer tags — verify during ETL build
 
 ---
 
@@ -306,34 +305,36 @@ The only DYT-specific table in SQL Server. All other tables are Fivetran mirrors
 | Dual-redemption flag | Report 23 | RESOLVED — legitimate but tracked | `is_dual_redemption` flag on fact_voucher_lifecycle |
 | Marketing voucher flag | N/A (data quality) | NEW — distinguish internal from client vouchers | `is_marketing` flag on dim_voucher |
 | Refund normalisation | N/A (data quality) | NEW — inconsistent refund patterns in source | ETL normalisation logic |
-| Voucher base cost / margin | Report 18 | OPEN — source unknown | Team to clarify; may need new billing rate input |
-| Membership tiers | Report 37 | PARTIALLY OPEN — likely in Shopify discount code names | Verify during ETL build |
-| Promotional pricing | Reports 30, 32 | OPEN — lower priority | May use Shopify compare_at_price |
-| Customer_Type | Report 25 | OPEN — lower priority | Classification on dim_voucher |
+| Voucher base cost / margin | Report 18 | RESOLVED — Finance spreadsheet | `ref_commission_rate` table in DYT_DWH (CSV/Excel upload) |
+| Membership tiers | Report 37 | RESOLVED — Shopify customer tags | Parse `stg_customers.tags` → `membership_tier` on dim_customer |
+| Promotional pricing | Reports 30, 32 | DEFERRED — lower priority | Handle during ETL build; may use Shopify compare_at_price |
+| Customer_Type | Report 25 | DEFERRED — lower priority | Handle during ETL build |
 
 ---
 
 ## Open Items for Team Discussion
 
-### 1. Provisional Billing / Margin (Q4) — HIGH PRIORITY
-**Report 18** needs voucher base cost, commission rates, and margin calculations. The `commission_rate_id` field in CampaignSegmentTbl is unpopulated. **Where does Report 18 currently get its cost data?** If it's manual/spreadsheet-based, the DWH solution needs a commission rate table as a new managed input.
+### 1. Refund Data Quality — LOW PRIORITY (needs team check)
+CampaignSegmentTbl has two inconsistent patterns for tracking refunds. The ETL will handle both, but the team should confirm whether both patterns are still in use or if one is legacy.
 
-### 2. Membership Tiers (Q6) — MEDIUM PRIORITY
-**Report 37** shows Standard Bank membership tiers (DYTSquad25, GETDRESSED, 15%-50% discount levels). Only 6 rows in CampaignSegmentTbl are tagged "Membership". **Are these tiers defined by Shopify discount code names?** Can be verified during ETL build when we access actual discount code data.
+### Resolved (2026-03-06)
 
-### 3. Refund Data Quality — LOW PRIORITY
-CampaignSegmentTbl has two inconsistent patterns for tracking refunds. The ETL will need to normalise this, but the team should confirm whether both patterns are still in use or if one is legacy.
+- **Q4 Provisional Billing:** Finance manages commission rates in spreadsheets. DWH will introduce `ref_commission_rate` reference table loaded from CSV/Excel.
+- **Q6 Membership Tiers:** Standard Bank discount tiers (15%-50%) are customer-level tags in Shopify. Will parse from `stg_customers.tags` into `membership_tier` on dim_customer.
+- **Promo Pricing & Customer_Type:** Deferred to ETL build phase.
 
 ---
 
 ## Recommended Next Steps
 
-1. **Team to clarify billing/cost data source** (Q4) — blocks Report 18 schema design
-2. **Update Layer 2 schema** (`schema-dyt.md`) with confirmed findings:
+1. **Update Layer 2 schema** (`schema-dyt.md`) with confirmed findings:
    - Add `campaign_name`, subscription parsing fields, `is_marketing` flag to dim_voucher
    - Add breakage metrics to fact tables
    - Rename `additional_spend` → `overspend`
    - Add `is_dual_redemption` flag
    - Add payment type split as DYT order view
-3. **Verify membership tiers** during ETL build (check Shopify discount code names)
-4. **Generate Word document** for team review
+   - Add `ref_commission_rate` reference table
+   - Add `membership_tier` to dim_customer
+2. **Confirm refund patterns** with team (both Pattern A and B still in use?)
+3. **Verify DYTSquad25, GETDRESSED, THANKYOU100** are also customer tags during ETL build
+4. **Regenerate Word documents** with updated schema
