@@ -1,7 +1,7 @@
 # Tasks
 
 **Project:** DYT DWH
-**Last Updated:** 2026-03-06
+**Last Updated:** 2026-05-15
 
 ---
 
@@ -11,9 +11,7 @@
 
 ## High Priority
 
-- [ ] Update schema design with confirmed findings from report mapping
-  Priority: HIGH | Added: 2026-03-06 | Est: 2h
-  Items: ref_commission_rate table, membership_tier on dim_customer, campaign_name + subscription parsing on dim_voucher, is_marketing flag, breakage metrics, overspend rename, is_dual_redemption flag, payment type split view
+(none — design phase complete, ready for ETL implementation)
 
 ---
 
@@ -63,6 +61,19 @@
 ---
 
 ## Completed
+
+### Week of 2026-05-11
+
+- [x] Update schema design with confirmed findings from report mapping
+  Priority: HIGH | Added: 2026-03-06 | Completed: 2026-05-15
+  **Audit result:** 6 of 8 items were already in design.md from prior work.
+  **New additions:**
+  - `membership_tier` column on Layer 1 `dim_customer` (derived from `tags` at load time; SB-Gold/Silver/Platinum mapping documented)
+  - `DYT_DWH.v_dyt_order_payment_split` view (gc/discount/cash split for Reports 8, 9, 14, 15)
+  **Decisions:**
+  - Membership tier derived at load time, raw `tags` retained (mapping is config-driven, extensible)
+  - Payment split lives as a DYT_DWH view, not Layer 1 columns (keeps Layer 1 productisable)
+  **Doc:** design.md bumped to v2.1
 
 ### Week of 2026-03-03
 

@@ -1,8 +1,8 @@
 # DYT DWH — Consolidated Design
 
-**Version:** 2.0
-**Last Updated:** 2026-03-06
-**Status:** Design complete, pending schema update with resolved findings
+**Version:** 2.1
+**Last Updated:** 2026-05-15
+**Status:** Design complete — ready for ETL implementation
 
 This is the single source of truth for the DYT-specific data warehouse design. It consolidates the schema design, report mapping analysis, and all resolved questions into one document.
 
@@ -339,6 +339,78 @@ AND EXISTS(SELECT 1 FROM stg_order_discount_applications WHERE order_id=X)
 
 ---
 
+## v_dyt_order_payment_split (View)
+
+**Source:** View over `SHOPIFY_DWH.fact_order` + `SHOPIFY_STG.stg_order_transactions` + `DYT_DWH.dim_voucher`
+**Grain:** One row per Shopify order
+**Purpose:** Expose the gift-card / discount / cash payment split that Reports 8, 9, 14, 15 require, without contaminating the productisable Layer 1 fact with DYT-specific gateway groupings.
+
+| Column | Type | Source/Transformation | Description |
+|--------|------|----------------------|-------------|
+| **Keys** |
+| order_key | BIGINT | fact_order.order_key | FK to fact_order |
+| order_number | VARCHAR(20) | fact_order.order_number | Order number for lookup |
+| order_date_key | INT | fact_order.order_date_key | FK to dim_date |
+| customer_key | BIGINT | fact_order.customer_key | FK to dim_customer |
+| **Payment Split** |
+| gc_amount | DECIMAL(18,2) | SUM(amount) WHERE gateway = 'gift_card' | Gift card tender |
+| discount_amount | DECIMAL(18,2) | fact_order.total_discount_amount | Total discount applied to order |
+| cash_amount | DECIMAL(18,2) | SUM(amount) WHERE gateway NOT IN ('gift_card') | All non-gift-card tender (incl. PayFast, PayFlex, etc.) |
+| total_amount | DECIMAL(18,2) | fact_order.total_amount | Order total |
+| **Flags** |
+| has_gift_card | BOOLEAN | gc_amount > 0 | Order paid (partly or fully) with gift card |
+| has_discount_code | BOOLEAN | discount_amount > 0 | Order had discount code applied |
+| is_dual_redemption | BOOLEAN | has_gift_card AND has_discount_code | Both tenders used (matches fact_voucher_lifecycle flag) |
+| **DYT Context** |
+| voucher_code | VARCHAR(50) | dim_voucher.voucher_code (left join via discount code or gift card GID) | Joined voucher code (NULL if none) |
+| voucher_key | BIGINT | dim_voucher.voucher_key | FK to dim_voucher |
+| channel_key | BIGINT | dim_voucher.channel_key | FK to dim_channel |
+| channel_name | VARCHAR(255) | dim_voucher.channel_name | Channel name (denormalised) |
+
+**Definition (SQL):**
+
+```sql
+CREATE OR REPLACE VIEW DYT_DWH.v_dyt_order_payment_split AS
+WITH txn_split AS (
+  SELECT
+    order_id,
+    SUM(CASE WHEN gateway = 'gift_card' THEN amount ELSE 0 END)         AS gc_amount,
+    SUM(CASE WHEN gateway NOT IN ('gift_card') THEN amount ELSE 0 END)  AS cash_amount
+  FROM SHOPIFY_STG.stg_order_transactions
+  WHERE kind = 'SALE'  -- exclude refunds/authorizations
+  GROUP BY order_id
+)
+SELECT
+  o.order_key,
+  o.order_number,
+  o.order_date_key,
+  o.customer_key,
+  COALESCE(t.gc_amount, 0)                       AS gc_amount,
+  COALESCE(o.total_discount_amount, 0)           AS discount_amount,
+  COALESCE(t.cash_amount, 0)                     AS cash_amount,
+  o.total_amount,
+  CASE WHEN COALESCE(t.gc_amount, 0) > 0       THEN TRUE ELSE FALSE END AS has_gift_card,
+  CASE WHEN COALESCE(o.total_discount_amount, 0) > 0 THEN TRUE ELSE FALSE END AS has_discount_code,
+  CASE WHEN COALESCE(t.gc_amount, 0) > 0
+        AND COALESCE(o.total_discount_amount, 0) > 0
+       THEN TRUE ELSE FALSE END                  AS is_dual_redemption,
+  v.voucher_code,
+  v.voucher_key,
+  v.channel_key,
+  v.channel_name
+FROM SHOPIFY_DWH.fact_order o
+LEFT JOIN txn_split t ON t.order_id = o.order_id
+LEFT JOIN DYT_DWH.dim_voucher v
+       ON v.redemption_order_id = o.order_id;
+```
+
+**Notes:**
+- `cash_amount` is the *Exco view* of non-gift-card spend, lumping PayFast / PayFlex / shopify_payments together. Q9 confirms Exco wants the lump; Finance gets the gateway detail from Layer 1 directly.
+- The view exists so Layer 1's `fact_order` stays generic. If query performance becomes a problem (high order volume × large reports), materialise as `fact_dyt_order_summary` later.
+- `is_dual_redemption` here is order-grained; `fact_voucher_lifecycle.is_dual_redemption` is voucher-grained. Both should agree but live at different grains.
+
+---
+
 # Reference Tables
 
 ## ref_commission_rate
@@ -399,10 +471,10 @@ AND EXISTS(SELECT 1 FROM stg_order_discount_applications WHERE order_id=X)
 | Report | # | Gap | Resolution |
 |--------|---|-----|------------|
 | DYT Financials (AR and AP) | 7 | Payment ID, Gammatek invoice | Deferred — external data |
-| DYT Order Details (MTD) | 8 | Campaign, Breakage, payment split | campaign_name on dim_voucher, breakage metric, payment type view |
-| DYT Discount Details | 9 | Voucher Channel, Discount Target, Cash split | dim_voucher.channel_name, payment type view |
-| DYT Revenue (Daily Exco) | 14 | Payment type breakdown (GC/Discount/Cash) | DYT order view on Layer 1 |
-| DYT Revenue (Exco Summary) | 15 | Same as above, monthly | DYT order view on Layer 1 |
+| DYT Order Details (MTD) | 8 | Campaign, Breakage, payment split | campaign_name on dim_voucher, breakage metric, `v_dyt_order_payment_split` |
+| DYT Discount Details | 9 | Voucher Channel, Discount Target, Cash split | dim_voucher.channel_name, `v_dyt_order_payment_split` |
+| DYT Revenue (Daily Exco) | 14 | Payment type breakdown (GC/Discount/Cash) | `v_dyt_order_payment_split` |
+| DYT Revenue (Exco Summary) | 15 | Same as above, monthly | `v_dyt_order_payment_split` |
 | DYT Provisional Billing | 18 | Voucher base cost, margin | ref_commission_rate table |
 | DYT Redemptions (>1 redemption) | 23 | Dual-redemption detection | is_dual_redemption flag |
 | DYT Capitec (Skull Candy) | 35 | Client filter on product reports | Cross Layer 1+2 join |
@@ -474,7 +546,7 @@ Real business clients (~30+): African Bank, Bettabets, Betway, Blue Label, Capit
 | # | Question | Answer | Schema Impact |
 |---|----------|--------|---------------|
 | Q1 | Campaign hierarchy | Client = dim_channel, Campaign = VARCHAR attribute | campaign_name on dim_voucher |
-| Q2 | Payment type breakdown | Derived from Shopify transactions (gateway type) | DYT order view on Layer 1 |
+| Q2 | Payment type breakdown | Derived from Shopify transactions (gateway type) | `DYT_DWH.v_dyt_order_payment_split` view |
 | Q3 | Breakage amount | Unredeemed gift card value | breakage_amount on fact_voucher_lifecycle |
 | Q4 | Billing / margin data | Finance spreadsheets | ref_commission_rate table |
 | Q5 | "In Process" status | Pending refunds (Campaign="In Process", Client="Refund") | Filter on dim_voucher |
@@ -636,6 +708,7 @@ WHERE vi.voucher_type = 'gift_card'
 | DYT_DWH | dim_voucher | Dimension | Central voucher dimension |
 | DYT_DWH | fact_voucher_lifecycle | Fact | Full voucher lifecycle |
 | DYT_DWH | fact_channel_daily | Fact | Pre-aggregated channel daily |
+| DYT_DWH | v_dyt_order_payment_split | View | Order-level GC/Discount/Cash split for Exco reports |
 | DYT_DWH | ref_commission_rate | Reference | Commission rates from Finance |
 
-**Total: 8 tables (3 STG + 2 dimensions + 2 facts + 1 reference)**
+**Total: 9 objects (3 STG + 2 dimensions + 2 facts + 1 view + 1 reference)**

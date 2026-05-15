@@ -512,7 +512,8 @@ Reporting-optimized with pivoted arrays, denormalized attributes, and user-frien
 | customer_created_date | DATE | stg_customers.created_at | Account creation date |
 | default_country | VARCHAR(100) | stg_customers.default_address_json → country | Default country |
 | default_city | VARCHAR(100) | stg_customers.default_address_json → city | Default city |
-| tags | VARCHAR(1000) | stg_customers.tags | Customer tags |
+| tags | VARCHAR(1000) | stg_customers.tags | Customer tags (raw) |
+| membership_tier | VARCHAR(50) | Derived from `tags` at load time (see mapping below) | Membership tier for B2B partner loyalty programs (NULL if not a member) |
 | is_tax_exempt | BOOLEAN | stg_customers.tax_exempt | Tax exempt flag |
 | lifetime_order_count | INT | COUNT(stg_orders) | Total orders |
 | lifetime_revenue | DECIMAL(18,2) | SUM(stg_orders.total_price) | Total spend |
@@ -528,6 +529,28 @@ Reporting-optimized with pivoted arrays, denormalized attributes, and user-frien
 | rfm_combined_score | INT | R + F + M (3-15) | Overall RFM score |
 | rfm_segment | VARCHAR(30) | RFM business logic | Champions, Loyal, At Risk, etc. |
 | _loaded_at | TIMESTAMP | ETL | Load timestamp |
+
+**Membership Tier Derivation (from tags):**
+
+Some B2B partners (e.g. Standard Bank) maintain customer loyalty tiers in Shopify via customer tags. The `membership_tier` column normalises these into a single, queryable attribute.
+
+```sql
+-- Pattern: extract tier from comma-separated tags
+-- Tag formats observed (confirm during ETL build):
+--   'SB-Gold', 'SB-Platinum', 'SB-Silver'  (Standard Bank)
+--   future B2B partners follow same '<partner>-<tier>' convention
+CASE
+  WHEN tags LIKE '%SB-Platinum%' THEN 'Standard Bank Platinum'
+  WHEN tags LIKE '%SB-Gold%'     THEN 'Standard Bank Gold'
+  WHEN tags LIKE '%SB-Silver%'   THEN 'Standard Bank Silver'
+  ELSE NULL
+END AS membership_tier
+```
+
+**Notes:**
+- Raw `tags` column is retained so the mapping can evolve without an ETL rebuild.
+- Mapping table is configuration-driven (see `productization-strategy.md`) — add new partners by extending the CASE, not by schema change.
+- For Layer 2 (DYT): this column powers Report 37 (STD Bank Membership Order Summary).
 
 **RFM Segment Definitions:**
 | Segment | R Score | F Score | M Score | Description |
