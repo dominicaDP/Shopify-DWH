@@ -21,6 +21,13 @@ memory/episodic/
 
 | Date | Type | Description | Project |
 |------|------|-------------|---------|
+| 2026-05-15 | experiment / infrastructure | POC Phase 0 complete: Docker+Exasol+Shopify all green; dyt-dwh design v2.1 closed | shopify-poc (new), dyt-dwh, research-notes |
+| 2026-03-06 | decision / scoping | DYT project creation, elevator pitch, Phase 4 NL analytics exploration | dyt-dwh (new), research-notes |
+| 2026-02-18 | research | Report mapping analysis — 38 DYT reports mapped to Layer 2 schema | research-notes |
+| 2026-02-18 | design | DYT Layer 2 B2B2C voucher & channel schema design | research-notes |
+| 2026-02-04 | analysis | Metrics gap analysis vs standard ecommerce KPIs — 57 metrics defined | research-notes |
+| 2026-01-30 | design | Layered schema redesign (STG + DWH) | Shopify DWH |
+| 2026-01-30 | decision | Architecture decisions documented | Shopify DWH |
 | 2026-01-30 | documentation | Generic layer documentation consolidated | Shopify DWH |
 | 2026-01-30 | research | Fulfillment API research - plan vs actual pattern, design options | Shopify DWH |
 | 2026-01-30 | validation | Customers API research - schema validated, deprecated fields noted | Shopify DWH |

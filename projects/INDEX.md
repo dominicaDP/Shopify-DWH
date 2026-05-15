@@ -1,13 +1,14 @@
 # Projects Index
 
-**Last Updated:** 2026-03-06
+**Last Updated:** 2026-05-15
 
 ## Active Projects
 
 | Project | Type | Status | Priority | Health |
 |---------|------|--------|----------|--------|
-| research-notes | Work | Active | HIGH | Healthy |
-| dyt-dwh | Work | Active | HIGH | Healthy |
+| shopify-poc | Experiment | Active | HIGH | Healthy |
+| research-notes | Work | On Hold | HIGH | Healthy |
+| dyt-dwh | Work | On Hold | HIGH | Healthy |
 
 ## Project Health Legend
 
@@ -19,10 +20,34 @@
 
 ## Project Details
 
+### shopify-poc (Layer 1 POC)
+
+**Type:** Experiment
+**Status:** Active — Phase 0 complete, Phase 1 next
+**Priority:** HIGH
+**Health:** Healthy
+
+**Quick Links:**
+- [Context](./shopify-poc/context.md)
+- [Plan](./shopify-poc/plan.md)
+- [Tasks](./shopify-poc/tasks.md)
+- [Notes](./shopify-poc/notes.md)
+
+**Current Focus:**
+- ✅ Phase 0: Docker + Exasol + Python venv + Shopify OAuth token all working
+- ⬅ Phase 1 next: Create `SHOPIFY_STG` schema + DDL for 4 POC tables
+
+**Recent Activity:**
+- Phase 0 complete (2026-05-15) — all three streams green, ready for Phase 1
+- Project created with scope, plan, and tasks (2026-05-15)
+- Decisions: Community Edition (not Personal), no anonymisation, no timeline
+
+---
+
 ### research-notes (Shopify DWH Research)
 
 **Type:** Work
-**Status:** Active
+**Status:** On Hold (resumes after POC outcome)
 **Priority:** HIGH
 **Health:** Healthy
 
@@ -47,7 +72,7 @@
 ### dyt-dwh (DYT Data Warehouse)
 
 **Type:** Work
-**Status:** Active
+**Status:** On Hold (resumes after Layer 1 POC outcome)
 **Priority:** HIGH
 **Health:** Healthy
 

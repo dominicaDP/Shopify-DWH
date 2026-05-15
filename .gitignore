@@ -1,0 +1,41 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+
+# POC raw data extracts and local databases
+code/poc/data/
+code/poc/dumps/
+code/poc/*.csv
+code/poc/*.parquet
+code/poc/*.sqlite
+code/poc/*.db
+
+# Exasol Docker volume data (if mounted into repo)
+exasol-data/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+nul
+
+# Logs
+*.log
+logs/
