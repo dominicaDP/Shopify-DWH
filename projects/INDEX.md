@@ -63,6 +63,7 @@
 - Define generic DWH structure
 
 **Recent Activity:**
+- Exasol Xperts narrative + market-sizing and reporting-problems addendums drafted (2026-05-25)
 - Consolidated project context and vision (2026-01-29)
 - Defined two-layer architecture (generic + custom)
 - Established scope: Orders & Finance first

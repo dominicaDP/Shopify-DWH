@@ -80,6 +80,16 @@
 
 ## Completed
 
+### Week of 2026-05-25
+
+- [x] Draft Exasol Xperts programme narrative for product/engineering audience
+  **Priority:** HIGH | **Added:** 2026-05-25 | **Completed:** 2026-05-25
+  **Created:** `exasol-xperts-narrative.md` — Why + What framing (why an Exasol-for-Shopify accelerator should exist, what should exist), with brief credibility paragraph and four conversation asks. Companion addendums:
+  - `exasol-xperts-addendum-a-market-sizing.md` — sourced market evidence (2M+ merchants, $3.5-25K/mo mid-market stack TCO, Fivetran 40-70% hike confirmed, $85M+ VC into Shopify analytics dashboards, OTTO ecommerce credibility, no Shopify-specific Exasol story).
+  - `exasol-xperts-addendum-b-shopify-reporting-problems.md` — sourced problem evidence (10K row export cap on Plus, per-tier capability matrix, merchant-complaint threads, LTV/cohort/attribution gaps, three new API quirks for warehouse implementers).
+  **Word versions:** generated via `for-word/convert_to_docx.py` — script extended with hyperlink support and `apply_inline_formatting()` helper.
+  **Decisions captured:** Pitch docs should be Why + What (case + vision), not How (architecture); citations belong in companion docs, not even as inline links in the main doc — codified in `feedback_pitch-document-structure.md`.
+
 ### Week of 2026-03-03
 
 - [x] Create elevator pitch for Exasol event

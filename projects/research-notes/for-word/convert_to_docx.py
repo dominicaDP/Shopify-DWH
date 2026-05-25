@@ -9,6 +9,63 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
 
+def add_hyperlink(paragraph, url, text):
+    """Add a clickable hyperlink to a paragraph."""
+    part = paragraph.part
+    r_id = part.relate_to(
+        url,
+        'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink',
+        is_external=True,
+    )
+    hyperlink = OxmlElement('w:hyperlink')
+    hyperlink.set(qn('r:id'), r_id)
+    new_run = OxmlElement('w:r')
+    rPr = OxmlElement('w:rPr')
+    color = OxmlElement('w:color')
+    color.set(qn('w:val'), '0563C1')
+    rPr.append(color)
+    underline = OxmlElement('w:u')
+    underline.set(qn('w:val'), 'single')
+    rPr.append(underline)
+    new_run.append(rPr)
+    t = OxmlElement('w:t')
+    t.text = text
+    new_run.append(t)
+    hyperlink.append(new_run)
+    paragraph._p.append(hyperlink)
+
+
+# Combined regex for inline formatting: bold, code, links
+INLINE_SPLIT_RE = re.compile(r'(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))')
+LINK_RE = re.compile(r'^\[([^\]]+)\]\(([^)]+)\)$')
+
+
+def apply_inline_formatting(paragraph, text):
+    """Apply bold, code, and link formatting to text within a paragraph."""
+    parts = INLINE_SPLIT_RE.split(text)
+    for part in parts:
+        if not part:
+            continue
+        if part.startswith('**') and part.endswith('**'):
+            run = paragraph.add_run(part[2:-2])
+            run.bold = True
+        elif part.startswith('`') and part.endswith('`'):
+            run = paragraph.add_run(part[1:-1])
+            run.font.name = 'Consolas'
+            run.font.size = Pt(10)
+        else:
+            link_match = LINK_RE.match(part)
+            if link_match:
+                link_text, url = link_match.group(1), link_match.group(2)
+                if url.startswith(('http://', 'https://')):
+                    add_hyperlink(paragraph, url, link_text)
+                else:
+                    # Intra-doc link or relative path — render as plain text
+                    paragraph.add_run(link_text)
+            else:
+                paragraph.add_run(part)
+
+
 def set_table_borders(table):
     """Add borders to a table."""
     tbl = table._tbl
@@ -137,29 +194,15 @@ def convert_md_to_docx(md_path, docx_path):
         # Bold text in metadata lines
         if line.startswith('**') and ':**' in line:
             p = doc.add_paragraph()
-            # Parse bold and regular text
-            parts = re.split(r'(\*\*[^*]+\*\*)', line)
-            for part in parts:
-                if part.startswith('**') and part.endswith('**'):
-                    run = p.add_run(part[2:-2])
-                    run.bold = True
-                else:
-                    p.add_run(part)
+            apply_inline_formatting(p, line)
             i += 1
             continue
 
         # Bullet points
         if line.strip().startswith('- '):
             text = line.strip()[2:]
-            # Handle bold within bullet
             p = doc.add_paragraph(style='List Bullet')
-            parts = re.split(r'(\*\*[^*]+\*\*)', text)
-            for part in parts:
-                if part.startswith('**') and part.endswith('**'):
-                    run = p.add_run(part[2:-2])
-                    run.bold = True
-                else:
-                    p.add_run(part)
+            apply_inline_formatting(p, text)
             i += 1
             continue
 
@@ -167,32 +210,13 @@ def convert_md_to_docx(md_path, docx_path):
         if re.match(r'^\d+\. ', line.strip()):
             text = re.sub(r'^\d+\. ', '', line.strip())
             p = doc.add_paragraph(style='List Number')
-            parts = re.split(r'(\*\*[^*]+\*\*)', text)
-            for part in parts:
-                if part.startswith('**') and part.endswith('**'):
-                    run = p.add_run(part[2:-2])
-                    run.bold = True
-                else:
-                    p.add_run(part)
+            apply_inline_formatting(p, text)
             i += 1
             continue
 
-        # Regular paragraph with potential bold/code formatting
+        # Regular paragraph with potential bold/code/link formatting
         p = doc.add_paragraph()
-        # Handle inline formatting
-        text = line.strip()
-        # Split by bold markers
-        parts = re.split(r'(\*\*[^*]+\*\*|`[^`]+`)', text)
-        for part in parts:
-            if part.startswith('**') and part.endswith('**'):
-                run = p.add_run(part[2:-2])
-                run.bold = True
-            elif part.startswith('`') and part.endswith('`'):
-                run = p.add_run(part[1:-1])
-                run.font.name = 'Consolas'
-                run.font.size = Pt(10)
-            else:
-                p.add_run(part)
+        apply_inline_formatting(p, line.strip())
 
         i += 1
 
@@ -212,6 +236,9 @@ def main():
         '05-Metrics-Reference.md',
         '06-DYT-Layer2-Schema.md',
         '07-Report-Mapping-Analysis.md',
+        'Exasol-Xperts-Narrative.md',
+        'Exasol-Xperts-Addendum-A-Market-Sizing.md',
+        'Exasol-Xperts-Addendum-B-Shopify-Reporting-Problems.md',
     ]
 
     for md_file in md_files:
