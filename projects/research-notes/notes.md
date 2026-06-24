@@ -1,11 +1,45 @@
 # Notes
 
 **Project:** Shopify DWH Research
-**Last Updated:** 2026-02-03
+**Last Updated:** 2026-06-24
 
 ---
 
 ## Research Log
+
+### 2026-06-24 — Layer 1 build prerequisites resolved (decision session)
+
+Worked through every pre-build decision in `build-plan.md` one at a time. All closed; only
+live-instance checks remain. Decisions:
+
+- **Production host:** Dom's **existing Exasol instance** (the one already running his other DWH).
+  Shopify DWH lands as new schemas alongside it — no new instance/edition. Community-Edition limits
+  were POC-only. Volume is negligible (POC 15.45 MB; full design low single-digit GB).
+- **Shopify scopes:** `read_all_orders` + `read_customers` + `read_inventory`, all in one app-config
+  pass. `read_inventory` included **because this is a foundational/productisable build** — build the
+  design complete, not trimmed (margin already works via `read_products` cost, but stock/sell-through
+  rounds it out).
+- **Historical backfill:** straight from Shopify via `read_all_orders`, **not** seeding from the
+  existing Fivetran/SQL Server data — reuses the proven POC loaders as-is (vs. throwaway schema
+  mapping + cross-system pull) and makes a clean break from Fivetran. Key reframe: **the 60-day cap
+  is an initial-ingestion concern only** — once the ETL runs daily, the warehouse accumulates its own
+  history (we own retention), so the cap is a one-time backfill enabler, not an ongoing problem.
+- **Backfill depth:** full history on first run (volume trivial).
+- **ETL host:** **dedicated basic Linux VM**, same network as Exasol — **not** co-located on the DB
+  node (keep the DB dedicated, keep internet-facing extraction + API secrets off the DB host, keep
+  ETL ops independent).
+- **Secrets:** locked-down env file (perms 600, dedicated ETL OS user, out of git) + a **dedicated
+  least-privilege Exasol user** (not SYS). **Azure Key Vault explicitly ruled out.**
+- **Revenue definition:** **store atomic components** (`gross_sales`, `discount`, `refund`, `tax`,
+  `shipping`) in the fact, derive all named measures in the **view layer**. Headline = net sales,
+  but only as a **provisional, reversible label** (a one-line view default) — so "which does current
+  reporting lead with?" stops being a blocker; confirm and flip later for free.
+
+**Remaining (live-instance checks, not decisions):** schema names `SHOPIFY_STG`/`SHOPIFY_DWH` free;
+Exasol version matches POC (8 / v2025.2.1). Committed `8223d91`.
+
+---
+
 
 ### 2026-01-29 - Project Setup & Business Context
 

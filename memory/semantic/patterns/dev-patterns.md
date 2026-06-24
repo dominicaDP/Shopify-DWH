@@ -1407,6 +1407,40 @@ underscore-prefixed and reserved-word columns before generating production DDL.
 
 ---
 
+### Store Atomic Components, Derive Measures in the View Layer
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** data-modelling
+
+**When to use:**
+When a "headline" business measure has a contested or uncertain definition (revenue net-vs-gross,
+which costs to include, etc.) and you risk locking the warehouse into one answer before the business
+has settled on it.
+
+**Pattern:**
+Never store a single pre-computed answer (e.g. one `revenue` column) in the fact table. Store the
+**atomic, additive components** at grain — `gross_sales`, `discount`, `refund`, `tax`, `shipping` —
+each a plain number that just sums. Then **define every named measure in the metric/view layer**
+on top of those columns (gross sales = Σ gross; net sales = Σ(gross − refund); net-of-tax; …).
+
+**Why it pays off:**
+- Every possible definition is *derivable*, so contradictory requirements (finance wants net, ops
+  wants gross) are served **side by side** from the same warehouse.
+- The "headline" is just a default label in a view — changeable in minutes with **no ETL re-run,
+  no schema change, no reload**. The architecture absorbs the uncertainty.
+- Turns a blocking decision ("which is revenue?") into a non-blocker ("pick a provisional default,
+  confirm with the business whenever, flip later for free").
+
+**Key insight:** an unresolved definitional question is not a reason to stall the build — it's a
+signal to push the choice up into the (cheap, reversible) semantic layer and keep the (expensive,
+immutable) storage layer definition-free.
+
+**Origin:** resolving the canonical revenue definition for the Layer 1 build when the user wasn't
+sure whether current reporting leads with gross or net. See `research-notes/build-plan.md`.
+
+---
+
 ## Anti-Patterns
 
 ### Building on Deprecated APIs
