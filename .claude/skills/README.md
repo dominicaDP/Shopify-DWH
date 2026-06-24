@@ -1,6 +1,6 @@
 # Skills Framework
 
-This second brain uses **9 specialized Skills** that activate automatically based on your intent.
+This second brain uses **specialized Skills** that activate automatically based on your intent.
 
 ## What Are Skills?
 
@@ -67,6 +67,12 @@ Skills use **progressive disclosure** - Claude reads the main SKILL.md (~200 lin
 **When**: Creating LinkedIn posts, newsletters, blog content
 **Output**: Validated content scored 0-100
 **Command**: Use skill directly (no command wrapper)
+
+### 10. **session-wrap-up**
+**What**: End-of-session routine — review changes, update tracking, run learn-extraction, commit
+**When**: End of a work session, before switching projects, or after a milestone
+**Output**: Updated project tracking + memory, a scoped commit, and a session summary
+**Command**: `/wrap-up`
 
 ## How Skills Activate
 
