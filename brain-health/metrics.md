@@ -15,16 +15,16 @@ Track the growth and effectiveness of your second brain.
 ### Patterns
 | Metric | Count |
 |--------|-------|
-| Total patterns | 33 |
-| LOW confidence | 27 |
+| Total patterns | 34 |
+| LOW confidence | 28 |
 | MEDIUM confidence | 5 |
 | HIGH confidence | 1 |
 
 ### Memory
 | Type | Entries |
 |------|---------|
-| Semantic (facts/patterns) | 1 file (dev-patterns.md — 33 patterns) |
-| Episodic (completed work) | 15 |
+| Semantic (facts/patterns) | 1 file (dev-patterns.md — 34 patterns) |
+| Episodic (completed work) | 16 |
 | Procedural (workflows) | 0 |
 
 ### Projects
@@ -39,15 +39,16 @@ Track the growth and effectiveness of your second brain.
 ## Activity Metrics
 
 ### This Week (2026-06-24)
-- `/learn` sessions: 1
-- Patterns extracted: 5 new, 3 reinforced (2 promoted to MEDIUM)
-- Tasks completed: POC Phases 1–5 (all gates) + reconciliation
+- `/learn` sessions: 2
+- Patterns extracted: 6 new, 3 reinforced (2 promoted to MEDIUM)
+- Tasks completed: POC Phases 1–5 (all gates) + reconciliation; Layer 1 build prerequisites resolved
 - Ideas captured: 0
-- Milestone: **first project completed** (shopify-poc → GO); first implementation patterns
+- Milestone: **first project completed** (shopify-poc → GO); first implementation patterns; Layer 1
+  build decisions locked
 
 ### Cumulative
-- `/learn` sessions: 6
-- Patterns extracted: 33 total
+- `/learn` sessions: 7
+- Patterns extracted: 34 total
 - Pattern promotions: 2 (Two-Layer DWH, Mid-Session Checkpointing → MEDIUM)
 - Projects completed: 1 (shopify-poc)
 
@@ -68,11 +69,13 @@ Track the growth and effectiveness of your second brain.
 
 ### Week 12 (2026-06-24) — first implementation
 - Starting patterns: 28
-- Ending patterns: 33
-- Episodic entries: 14 → 15
+- Ending patterns: 34
+- Episodic entries: 14 → 16
 - Growth: Project crossed from design-on-paper to **running code**. First implementation patterns
   (idempotent loading, GraphQL throttling, reconciliation method, walking-skeleton POC, Exasol
-  gotchas). Two patterns promoted to MEDIUM on real build validation.
+  gotchas). Two patterns promoted to MEDIUM on real build validation. Then a decision session
+  resolved the Layer 1 build prerequisites, adding the "store atomic components, derive measures in
+  the view layer" pattern and a decision-pacing feedback memory.
 
 **Key Milestones:**
 - [x] First project completed (shopify-poc — verdict GO)
@@ -123,7 +126,7 @@ Track the growth and effectiveness of your second brain.
 | Category | Count | Examples |
 |----------|-------|----------|
 | architecture | 3 | Two-Layer Architecture, Warehouse vs Lakehouse, POPIA Tiered Architecture |
-| data-modeling | 7 | Star Schema, Pivot Transformation, Variant Grain, Cross-System Join, Pre-Aggregated Fact, Metrics-Driven, Data Investigation |
+| data-modeling | 8 | Star Schema, Pivot Transformation, Variant Grain, Cross-System Join, Pre-Aggregated Fact, Metrics-Driven, Data Investigation, Store Atomic Components (derive in views) |
 | process | 9 | Validate Schema vs API, Mid-Session Checkpointing, Design-on-Paper, Reconcile (Window+Definition), Walking-Skeleton POC, Evaluate Existing Tools, Evidence-Based Building, Follow Conventions, Markdown-to-Word |
 | shopify-api | 9 | MoneyBag, Bulk Operations, Deprecated Fields, Plan vs Actual, Cost-Based Throttling |
 | exasol | 2 | Star Schema Optimization, Identifier & Type Constraints |
