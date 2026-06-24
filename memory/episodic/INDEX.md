@@ -21,6 +21,7 @@ memory/episodic/
 
 | Date | Type | Description | Project |
 |------|------|-------------|---------|
+| 2026-06-24 | implementation / validation | POC built & run end-to-end (Phases 1–5); metric reconciles to Fivetran at 0.30%; verdict **GO** | shopify-poc |
 | 2026-05-15 | experiment / infrastructure | POC Phase 0 complete: Docker+Exasol+Shopify all green; dyt-dwh design v2.1 closed | shopify-poc (new), dyt-dwh, research-notes |
 | 2026-03-06 | decision / scoping | DYT project creation, elevator pitch, Phase 4 NL analytics exploration | dyt-dwh (new), research-notes |
 | 2026-02-18 | research | Report mapping analysis — 38 DYT reports mapped to Layer 2 schema | research-notes |

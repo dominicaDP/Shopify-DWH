@@ -1,6 +1,6 @@
 # Brain Health Metrics
 
-**Last Updated:** 2026-03-06
+**Last Updated:** 2026-06-24
 
 ---
 
@@ -15,40 +15,41 @@ Track the growth and effectiveness of your second brain.
 ### Patterns
 | Metric | Count |
 |--------|-------|
-| Total patterns | 28 |
-| LOW confidence | 24 |
-| MEDIUM confidence | 3 |
+| Total patterns | 33 |
+| LOW confidence | 27 |
+| MEDIUM confidence | 5 |
 | HIGH confidence | 1 |
 
 ### Memory
 | Type | Entries |
 |------|---------|
-| Semantic (facts/patterns) | 1 file (dev-patterns.md — 28 patterns) |
-| Episodic (completed work) | 14 |
+| Semantic (facts/patterns) | 1 file (dev-patterns.md — 33 patterns) |
+| Episodic (completed work) | 15 |
 | Procedural (workflows) | 0 |
 
 ### Projects
 | Metric | Count |
 |--------|-------|
-| Active projects | 2 (research-notes, dyt-dwh) |
-| Completed projects | 0 |
+| Active projects | 2 (research-notes [next: Layer 1 build], dyt-dwh) |
+| Completed projects | 1 (shopify-poc — verdict GO) |
 | Total tasks tracked | 50+ |
 
 ---
 
 ## Activity Metrics
 
-### This Week (2026-03-03 to 2026-03-06)
+### This Week (2026-06-24)
 - `/learn` sessions: 1
-- Patterns extracted: 3 new, 1 reinforced
-- Tasks completed: 4
+- Patterns extracted: 5 new, 3 reinforced (2 promoted to MEDIUM)
+- Tasks completed: POC Phases 1–5 (all gates) + reconciliation
 - Ideas captured: 0
+- Milestone: **first project completed** (shopify-poc → GO); first implementation patterns
 
 ### Cumulative
-- `/learn` sessions: 5
-- Patterns extracted: 28 total
-- Pattern promotions: 0
-- Projects completed: 0
+- `/learn` sessions: 6
+- Patterns extracted: 33 total
+- Pattern promotions: 2 (Two-Layer DWH, Mid-Session Checkpointing → MEDIUM)
+- Projects completed: 1 (shopify-poc)
 
 ---
 
@@ -64,6 +65,20 @@ Track the growth and effectiveness of your second brain.
 ---
 
 ## Growth Trends
+
+### Week 12 (2026-06-24) — first implementation
+- Starting patterns: 28
+- Ending patterns: 33
+- Episodic entries: 14 → 15
+- Growth: Project crossed from design-on-paper to **running code**. First implementation patterns
+  (idempotent loading, GraphQL throttling, reconciliation method, walking-skeleton POC, Exasol
+  gotchas). Two patterns promoted to MEDIUM on real build validation.
+
+**Key Milestones:**
+- [x] First project completed (shopify-poc — verdict GO)
+- [x] First implementation (build + run) patterns, not just design
+- [x] First end-to-end reconciliation against a trusted source (0.30%)
+- [x] Two-Layer DWH and Mid-Session Checkpointing promoted to MEDIUM
 
 ### Week 6 (2026-03-03 to 2026-03-06)
 - Starting patterns: 25
@@ -109,9 +124,10 @@ Track the growth and effectiveness of your second brain.
 |----------|-------|----------|
 | architecture | 3 | Two-Layer Architecture, Warehouse vs Lakehouse, POPIA Tiered Architecture |
 | data-modeling | 7 | Star Schema, Pivot Transformation, Variant Grain, Cross-System Join, Pre-Aggregated Fact, Metrics-Driven, Data Investigation |
-| process | 7 | Validate Schema vs API, Mid-Session Checkpointing, Design-on-Paper, Evaluate Existing Tools, Evidence-Based Building, Follow Conventions, Markdown-to-Word |
-| shopify-api | 8 | MoneyBag, Bulk Operations, Deprecated Fields, Plan vs Actual |
-| exasol | 1 | Star Schema Optimization |
+| process | 9 | Validate Schema vs API, Mid-Session Checkpointing, Design-on-Paper, Reconcile (Window+Definition), Walking-Skeleton POC, Evaluate Existing Tools, Evidence-Based Building, Follow Conventions, Markdown-to-Word |
+| shopify-api | 9 | MoneyBag, Bulk Operations, Deprecated Fields, Plan vs Actual, Cost-Based Throttling |
+| exasol | 2 | Star Schema Optimization, Identifier & Type Constraints |
+| data-engineering | 1 | Idempotent Incremental Loading (Watermark + MERGE) |
 | infrastructure | 1 | systemd Timers |
 
 ---
@@ -154,9 +170,11 @@ Patterns approaching promotion (based on uses):
 | Pattern | Current | Uses | Needs |
 |---------|---------|------|-------|
 | Design-on-Paper Before Building | LOW | 4 | 1 more use → MEDIUM |
-| Mid-Session Checkpointing | LOW | 3 | Promote to MEDIUM (3 uses, no issues) |
+| Mid-Session Checkpointing | ✅ MEDIUM | 4 | promoted 2026-06-24 |
+| Two-Layer DWH (STG + DWH) | ✅ MEDIUM | 2 | promoted 2026-06-24 (build validation) |
+| Star Schema for Single-Source | LOW | 2 | 1 more use → MEDIUM candidate |
 | Shopify Cost Data Location | MEDIUM | 2 | 1 more use → HIGH candidate |
-| Two-Layer Architecture | LOW | 2 | 1 more use → MEDIUM candidate |
+| Two-Layer Architecture (Generic + Custom) | LOW | 2 | 1 more use → MEDIUM candidate |
 | Markdown-to-Word Pipeline | LOW | 2 | 1 more use → MEDIUM candidate |
 
 ---

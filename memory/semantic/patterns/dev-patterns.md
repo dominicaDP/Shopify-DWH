@@ -1,6 +1,6 @@
 # Development Patterns
 
-**Last Updated:** 2026-03-06
+**Last Updated:** 2026-06-24
 
 ---
 
@@ -65,9 +65,14 @@ Layer 2 (DYT-specific) successfully designed on top of Layer 1 (generic Shopify)
 ### Star Schema for Single-Source DWH
 
 **Confidence:** LOW
-**Uses:** 1
+**Uses:** 2
 **Category:** data-modeling
-**Last Used:** 2026-01-29
+**Last Used:** 2026-06-24
+
+**2026-06-24 build validation:** First time this was actually *built and run*, not just
+designed. A minimal star (dim_date, dim_product, fact_order, fact_order_line_item) on Exasol
+populated from real Shopify data, reconciled to STG to the cent, zero NULL FKs, and answered the
+target metric in <150ms. The design held up in implementation.
 
 **When to use:**
 Building a data warehouse with a single primary source system (e.g., one SaaS platform like Shopify).
@@ -205,10 +210,15 @@ Starting any integration project with an external API.
 
 ### Mid-Session Checkpointing
 
-**Confidence:** LOW
-**Uses:** 2
+**Confidence:** MEDIUM
+**Uses:** 4
 **Category:** process
-**Last Used:** 2026-01-30
+**Last Used:** 2026-06-24
+
+**2026-06-24 promotion (LOW→MEDIUM):** Used relentlessly through the longest session yet — after
+every phase, updated tasks/notes/plan/findings/memory and committed. When the session detoured into
+a long DataGrip connection debug, the work was never at risk because each phase was already
+checkpointed. Confirms the pattern across both research and implementation work.
 
 **When to use:**
 Working on research or complex tasks in Claude Code sessions that might get interrupted.
@@ -487,10 +497,16 @@ journalctl -u job.service  # View logs
 
 ### Two-Layer DWH Architecture (STG + DWH)
 
-**Confidence:** LOW
-**Uses:** 1
+**Confidence:** MEDIUM
+**Uses:** 2
 **Category:** data-modeling
-**Last Used:** 2026-01-30
+**Last Used:** 2026-06-24
+
+**2026-06-24 build validation (LOW→MEDIUM):** Built for real in the POC. STG mirrored the Shopify
+API (row-based, raw GIDs, minimal transform); DWH was the reporting layer (surrogate keys, GID
+extraction, denormalised product attributes on the fact, a metric view). The clean STG→DWH
+boundary made the transforms simple pure-SQL `INSERT…SELECT`s and made reconciliation trivial
+(fact_order = stg_orders to the cent). The separation paid off exactly as designed.
 
 **When to use:**
 Building a data warehouse from a transactional source (API, database) for reporting purposes.
@@ -1215,6 +1231,182 @@ The architecture can be designed speculatively (cheap). The implementation shoul
 
 ---
 
+## Implementation Patterns (Build Stage)
+
+> First populated 2026-06-24 when the project moved from design-on-paper to actually
+> building and running code (the shopify-poc). These are execution patterns.
+
+### Idempotent Incremental Loading (Watermark + MERGE-on-id)
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** data-engineering
+**Last Used:** 2026-06-24
+
+**When to use:**
+Loading data from a source that changes over time, where re-running a load must never
+create duplicates (the single most important property of a production ETL loader).
+
+**Pattern:**
+1. Store the source's last-modified field on each row (e.g. Shopify `updatedAt`).
+2. On each run, read the high-water mark: `SELECT MAX(updated_at) FROM target`.
+3. Fetch only source rows with `updated_at >= watermark` (>=, not >, so the boundary row
+   is re-fetched and safely re-merged rather than skipped).
+4. Load via `MERGE` on the natural key (id): update on match, insert on no-match —
+   instead of plain INSERT.
+
+**Why >= and MERGE together:**
+The `>=` guarantees no row is missed at the boundary; the MERGE makes re-fetching that
+boundary row (or an entire overlapping window) harmless. Belt and braces.
+
+**Proven:** Re-ran an incremental load repeatedly against a **live** store taking real
+orders mid-extraction — 0 duplicate ids every time, counts stable. The merge absorbed
+genuine concurrent updates cleanly.
+
+**Implementation note (Exasol):** MERGE into target from a temp table loaded via
+`import_from_pandas`; `CREATE OR REPLACE TABLE tmp LIKE target`, import, MERGE, drop.
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-06-24-shopify-poc-implementation.md
+
+---
+
+### Cost-Based GraphQL Throttling (Leaky Bucket)
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** shopify-api
+
+**When to use:**
+Paginating large extracts from an API that rate-limits by **query cost** (a points bucket),
+not by request count — Shopify Admin GraphQL being the canonical example.
+
+**Knowledge:**
+Each response carries `extensions.cost.throttleStatus`:
+```
+{ maximumAvailable, currentlyAvailable, restoreRate }   # points, points/second
+```
+
+**Client strategy:**
+1. After each request, record `throttleStatus`.
+2. **Proactively** sleep when `currentlyAvailable` drops below a buffer:
+   `sleep = (buffer - currentlyAvailable) / restoreRate`. Keeps the bucket healthy rather
+   than sprinting into a 429.
+3. On an explicit `THROTTLED` error (or HTTP 429), back off using the same maths, then retry.
+4. Separately retry transient network/5xx with exponential backoff.
+
+**Observed:** the DYT store's bucket is **20,000 points / 1,000-per-second** (much larger than
+the standard 1,000/50) — a newer/Plus allocation — so at POC volume we never actually throttled.
+But the handling is essential for production-scale backfills.
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-06-24-shopify-poc-implementation.md
+
+---
+
+### Reconcile by Aligning Window + Definition First
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** process
+
+**When to use:**
+Validating a new pipeline's numbers against an existing trusted source (here: our Exasol
+metric vs the incumbent Fivetran/SQL Server data).
+
+**Rule:**
+Before comparing any totals, make the two queries **identical** on the two things that silently
+cause false discrepancies:
+1. **Window** — pin explicit date bounds (and the same timezone) on both sides. Don't use
+   "last 60 days" (drifts by run date); use literal dates and complete days only.
+2. **Definition** — confirm the measure means the same thing on both sides
+   (e.g. our `net_amount` = Fivetran `price*quantity - total_discount`; refunds netted or not;
+   cancelled included or not).
+
+**Then** compare, and treat any residual gap as a *finding to explain*, not a pass/fail.
+
+**Proven:** Fivetran vs POC came out **0.30% apart**; the gap traced entirely to the known
+60-day extraction cap clipping the boundary day's morning orders — not a pipeline error.
+Product count matched exactly; the NULL/Unknown bucket matched to the cent. Aligning window +
+definition first is what made the 0.30% interpretable instead of alarming.
+
+**Tip:** prove the definitions match structurally before running — e.g. we confirmed our
+`gross_amount` equalled `price*quantity` exactly, so the discount subtraction was guaranteed
+to mean the same thing.
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-06-24-shopify-poc-implementation.md
+
+---
+
+### Walking-Skeleton POC Before Full Build
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** process
+
+**When to use:**
+Before committing to a large data-infrastructure build (here: the full 17-table Layer 1 DWH),
+when the core technical approach is unproven on real data.
+
+**Pattern:**
+Build the **thinnest possible end-to-end slice** that exercises every layer, on **real** data,
+in a **throwaway** local environment — then reconcile it to a trusted baseline.
+
+For this POC: 4 STG tables → 4 DWH objects → one metric ("revenue by product by day"), chosen
+specifically because it forces one-to-many denormalisation, a dimension build, and two fact grains.
+
+**Why it pays off (the build has "lots of code" ahead):**
+- A *systematic* extraction/transform error is invisible until reconciled, and poisons everything
+  built on top. Finding it on 4 tables is cheap; finding it after 17 + Layer 2 is not.
+- The thin slice surfaces the real constraints early: here the **60-day order cap**, the
+  **read_customers scope** gap, and **Exasol identifier rules** — all now known before the build.
+- The reusable components written for the skeleton (`shopify_client.py`, `exasol_loader.py`)
+  carry straight into the real build.
+
+**Key insight:** the lightweight reconciliation cost ~1 hour of the user's time and converted
+"we think this works" into "this works within 0.30%, gap explained." That confidence is the
+whole point of the POC.
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-06-24-shopify-poc-implementation.md
+
+---
+
+### Exasol Identifier & Type Constraints
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** exasol
+
+**When to use:**
+Writing Exasol DDL/SQL, especially when generating it from a design doc authored without Exasol
+in mind (e.g. `schema-layered.md`).
+
+**Constraints learned the hard way (each cost a failed statement):**
+- **No leading underscore** in unquoted identifiers — `_extracted_at` fails. Drop the prefix
+  (`extracted_at`) rather than quoting (quoting forces case-sensitivity forever).
+- **Reserved words can't be identifiers** — `year`, `month`, `day`, `object`, `rows` all fail as
+  column names/aliases. Rename (`cal_year`, `cal_month`, `cal_day`, `obj`, `n`).
+- `CHR()` is ASCII-only (0–127); use `UNICODECHR()` above 127.
+- No `generate_series` — generate N rows with a digit cross-join
+  (`digits d1,d2,d3,d4` → 0..9999) then `ADD_DAYS`.
+- `CREATE SCHEMA/TABLE IF NOT EXISTS` both work on Exasol 8 → idempotent deploys.
+
+**pyexasol specifics:**
+- Bind params use `{name}` formatting in `conn.execute(sql, {...})`, **not** `:name`.
+- Query results return TIMESTAMP columns as **strings** — `pd.Timestamp(x)` before formatting.
+- `import_from_pandas` for bulk load; needs `websocket_sslopt={"cert_reqs": 0}` against the
+  local self-signed container.
+
+**Action for the real build:** do a cleanup pass over `schema-layered.md` to rename
+underscore-prefixed and reserved-word columns before generating production DDL.
+
+**Related Episodes:**
+- memory/episodic/completed-work/2026-06-24-shopify-poc-implementation.md
+
+---
+
 ## Anti-Patterns
 
 ### Building on Deprecated APIs
@@ -1245,8 +1437,13 @@ The architecture can be designed speculatively (cheap). The implementation shoul
 |---------|------------|------|----------|
 | Two-Layer Architecture (Generic + Custom) | LOW | 2 | architecture |
 | Architecture Selection (Warehouse vs Lakehouse) | LOW | 1 | architecture |
-| Two-Layer DWH Architecture (STG + DWH) | LOW | 1 | data-modeling |
-| Star Schema for Single Source | LOW | 1 | data-modeling |
+| Two-Layer DWH Architecture (STG + DWH) | MEDIUM | 2 | data-modeling |
+| **Idempotent Incremental Loading (Watermark + MERGE)** | LOW | 1 | data-engineering |
+| **Cost-Based GraphQL Throttling (Leaky Bucket)** | LOW | 1 | shopify-api |
+| **Reconcile by Aligning Window + Definition First** | LOW | 1 | process |
+| **Walking-Skeleton POC Before Full Build** | LOW | 1 | process |
+| **Exasol Identifier & Type Constraints** | LOW | 1 | exasol |
+| Star Schema for Single Source | LOW | 2 | data-modeling |
 | Pivot Transformation (Rows to Columns) | LOW | 1 | data-modeling |
 | Variant-Level Grain | LOW | 1 | data-modeling |
 | **Metrics-Driven Schema Design** | LOW | 1 | data-modeling |
@@ -1255,7 +1452,7 @@ The architecture can be designed speculatively (cheap). The implementation shoul
 | **Data Investigation Before Schema Finalisation** | LOW | 1 | data-modeling |
 | Validate Schema Against API | LOW | 1 | process |
 | Check API Lifecycle First | LOW | 1 | process |
-| Mid-Session Checkpointing | LOW | 3 | process |
+| Mid-Session Checkpointing | MEDIUM | 4 | process |
 | Follow Existing Conventions (Don't Duplicate) | LOW | 1 | process |
 | Markdown-to-Word Pipeline | LOW | 2 | process |
 | Design-on-Paper Before Building | LOW | 4 | process |
@@ -1291,6 +1488,24 @@ When to promote from MEDIUM → HIGH:
 ---
 
 ## Pattern Review Log
+
+### 2026-06-24 (Shopify POC — first implementation: build, run, reconcile)
+
+The project crossed from design-on-paper to **running code**. Five new implementation patterns:
+- **Idempotent Incremental Loading (Watermark + MERGE-on-id)** — proven 0-dup on a live store
+- **Cost-Based GraphQL Throttling (Leaky Bucket)** — Shopify points-bucket handling
+- **Reconcile by Aligning Window + Definition First** — what made the Fivetran diff a clean 0.30%
+- **Walking-Skeleton POC Before Full Build** — thin end-to-end slice on real data before the big build
+- **Exasol Identifier & Type Constraints** — leading-underscore/reserved-word/no-generate_series gotchas
+
+Reinforcements & promotions:
+- **Two-Layer DWH (STG + DWH)** LOW→**MEDIUM** (uses 1→2) — built for real, clean transform boundary
+- **Star Schema for Single-Source DWH** (uses 1→2) — first actual build+reconcile, design held up
+- **Mid-Session Checkpointing** LOW→**MEDIUM** (uses 3→4) — survived a long session + a debugging detour
+- Live-confirmed earlier *design* findings: 60-day order cap, MoneyBag extraction, variant-grain dim_product
+- Key insight: a ~1-hour lightweight reconciliation (aligned window+definition) converts "we think it
+  works" into "0.30%, gap explained" — cheap insurance before a large build.
+- Created episodic: 2026-06-24-shopify-poc-implementation.md
 
 ### 2026-03-06 (Elevator Pitch + Phase 4 NL Analytics Exploration)
 - Added **Evaluate Existing Tools Before Building** pattern — check YF native AI before building Claude MCP
