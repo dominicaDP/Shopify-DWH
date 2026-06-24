@@ -7,13 +7,30 @@
 
 ## Resume Here (next session start)
 
-**Status:** ✅ Phase 0 complete — proceed to Phase 1.
+**Status:** ✅ Phases 0–3 + 4.1 complete. The pipeline works end to end: Shopify → STG → DWH →
+metric. **Next is Phase 4.2/4.3 (reconcile vs Fivetran) — needs Dom**, then Phase 5 (go/no-go).
 
-**To resume:**
-1. Confirm Docker Desktop is running: `docker ps` should show `exasol-db` container. If not running: `docker start exasol-db`.
-2. Confirm Exasol is reachable: from `code/poc/`, run `venv\Scripts\python.exe exasol_hello.py`. Should print SELECT 1 result + DB version.
-3. Confirm Shopify token still valid: from `code/poc/`, run `venv\Scripts\python.exe shopify_hello.py`. Should print shop info. If it fails with auth error, re-run `oauth_install.py` to refresh the token.
-4. Once all three green, start **Phase 1.1** below — create `SHOPIFY_STG` schema.
+**To resume / rebuild from scratch:**
+1. Start Docker Desktop, then `docker start exasol-db`. Check: `python exasol_hello.py`.
+2. Refresh STG from live store (optional): `python load_orders.py incremental` then
+   `python load_line_items.py incremental`. (Products/variants: re-run `load_products.py` /
+   `load_variants.py` for a full refresh.)
+3. Rebuild DWH + metric (all idempotent, run in order):
+   `python deploy_ddl.py ddl/02_dwh_schema.sql`
+   `python deploy_ddl.py ddl/03_dim_date.sql`
+   `python deploy_ddl.py ddl/04_transforms.sql`
+   `python deploy_ddl.py ddl/verify_dwh.sql`
+   `python deploy_ddl.py ddl/metric_revenue_by_product_by_day.sql`
+
+**Phase 4.2/4.3 — the open task (Dom):** run "revenue by product by day, last 60 days" against the
+existing Fivetran/SQL Server source and compare to the POC's **R2,195,132**. First align the revenue
+definition (POC sums line `net_amount`, post-discount, refunds not netted). Document the tolerance band.
+
+**Metric window: 60 days, not 90** (Shopify 60-day order cap without `read_all_orders` — decided 2026-06-24).
+
+**Artifacts:** extraction — `shopify_client.py`, `exasol_loader.py`, `load_{products,variants,orders,
+line_items}.py`. DWH/metric — `ddl/02_dwh_schema.sql`, `03_dim_date.sql`, `04_transforms.sql`,
+`verify_dwh.sql`, `metric_revenue_by_product_by_day.sql`.
 
 ---
 
@@ -121,7 +138,7 @@ Pure SQL from here. No more external dependencies — can be done from anywhere 
 
 | Step | What |
 |------|------|
-| 4.1 | Write report query: "Revenue by product by day, last 90 days" using `fact_order_line_item + dim_date + dim_product` |
+| 4.1 | Write report query: "Revenue by product by day, last 60 days" (window narrowed from 90 — see Phase 2 decision) using `fact_order_line_item + dim_date + dim_product` |
 | 4.2 | Run the same metric against the current Fivetran-based source |
 | 4.3 | Compare outputs. Investigate any discrepancies. Document the tolerance band you accept. |
 

@@ -89,6 +89,7 @@ Anonymisation is **not** required — purpose (analytics) is consistent with ori
 | 4 | "Revenue by product by day" as the proving metric | Forces exercising one-to-many denormalisation, dimension build, fact at two grains. More meaningful than "revenue by day". |
 | 5 | No timeline | Work happens when there's time. Sequence-driven, not calendar-driven. |
 | 6 | PII handled in place, not anonymised | Legitimate access + secure environment + same processing purpose |
+| 7 | Proving metric window narrowed 90→60 days (2026-06-24) | Shopify caps the Order query at 60 days without `read_all_orders`; chose to narrow the metric rather than reconfigure the app + reinstall. Revisit if real build needs deeper history. |
 
 ---
 
