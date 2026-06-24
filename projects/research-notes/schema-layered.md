@@ -1,9 +1,19 @@
 # Shopify DWH - Layered Schema Design
 
-**Version:** 1.0
-**Last Updated:** 2026-01-30
+**Version:** 1.1
+**Last Updated:** 2026-06-24
 
 This document defines the two-layer architecture: Staging (STG) mirrors Shopify, DWH is reporting-optimized.
+
+> **Exasol naming conventions (v1.1, applied after the POC validated these rules):**
+> Exasol rejects certain unquoted identifiers, so column names here are Exasol-safe:
+> - **No leading underscore** — ETL-metadata columns are `extracted_at` / `loaded_at`
+>   (not `_extracted_at` / `_loaded_at`).
+> - **No reserved words** — `dim_date` uses `cal_year` / `cal_quarter` / `cal_month`
+>   (not `year` / `month`, which are reserved). Compound names like `day_of_month`,
+>   `hour_24` are fine.
+> - `CHR()` is ASCII-only (use `UNICODECHR()`); there is no `generate_series`
+>   (build `dim_date` via a digit cross-join). See `code/poc/ddl/` for working examples.
 
 ---
 
@@ -80,7 +90,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | landing_site | landingSite | TEXT | First URL customer landed on |
 | referring_site | referringSite | TEXT | Referring URL |
 | checkout_id | checkoutId | VARCHAR(50) | Associated checkout GID |
-| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+| extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 ---
 
@@ -108,7 +118,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | taxable | taxable | BOOLEAN | Taxable flag |
 | requires_shipping | requiresShipping | BOOLEAN | Requires shipping |
 | fulfillable_quantity | fulfillableQuantity | INT | Quantity that can be fulfilled |
-| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+| extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 ---
 
@@ -128,7 +138,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | created_at | createdAt | TIMESTAMP | Transaction time |
 | processed_at | processedAt | TIMESTAMP | Processing time |
 | error_code | errorCode | VARCHAR(50) | Error code if failed |
-| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+| extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 ---
 
@@ -143,7 +153,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | title | title | VARCHAR(100) | Tax name |
 | rate | rate | DECIMAL(10,6) | Tax rate (0.15 = 15%) |
 | price | priceSet.shopMoney.amount | DECIMAL(18,2) | Tax amount |
-| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+| extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 ---
 
@@ -164,7 +174,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | value_percentage | value.percentage | DECIMAL(5,2) | Percentage (if applicable) |
 | target_type | targetType | VARCHAR(20) | LINE_ITEM or SHIPPING_LINE |
 | allocation_method | allocationMethod | VARCHAR(20) | ACROSS, EACH, ONE |
-| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+| extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 ---
 
@@ -182,7 +192,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | original_price | originalPriceSet.shopMoney.amount | DECIMAL(18,2) | Original shipping price |
 | discounted_price | discountedPriceSet.shopMoney.amount | DECIMAL(18,2) | After discounts |
 | carrier_identifier | carrierIdentifier | VARCHAR(100) | Carrier ID |
-| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+| extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 ---
 
@@ -207,7 +217,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | tags | tags | TEXT | Comma-separated tags |
 | note | note | TEXT | Customer notes |
 | tax_exempt | taxExempt | BOOLEAN | Tax exempt flag |
-| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+| extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 ---
 
@@ -228,7 +238,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | updated_at | updatedAt | TIMESTAMP | Last update |
 | published_at | publishedAt | TIMESTAMP | Publication time |
 | tags | tags | TEXT | Comma-separated tags |
-| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+| extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 ---
 
@@ -256,7 +266,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | inventory_item_id | inventoryItem.id | VARCHAR(50) | Inventory item GID |
 | created_at | createdAt | TIMESTAMP | Creation time |
 | updated_at | updatedAt | TIMESTAMP | Last update |
-| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+| extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 ---
 
@@ -280,7 +290,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | usage_count | codes.nodes[].asyncUsageCount | INT | Current usage |
 | applies_once_per_customer | codeDiscount.appliesOncePerCustomer | BOOLEAN | Per-customer limit |
 | created_at | codeDiscount.createdAt | TIMESTAMP | Creation time |
-| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+| extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 ---
 
@@ -303,7 +313,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | phone | address.phone | VARCHAR(50) | Phone number |
 | is_active | isActive | BOOLEAN | Active flag |
 | fulfills_online_orders | fulfillsOnlineOrders | BOOLEAN | Fulfills online orders |
-| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+| extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 ---
 
@@ -325,7 +335,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | service | service.serviceName | VARCHAR(100) | Shipping service name |
 | shipment_status | displayStatus | VARCHAR(50) | LABEL_PRINTED, LABEL_PURCHASED, etc. |
 | total_quantity | totalQuantity | INT | Total items fulfilled |
-| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+| extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 ---
 
@@ -340,7 +350,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | quantity | quantity | INT | Quantity fulfilled in this shipment |
 | original_total | originalTotalSet.shopMoney.amount | DECIMAL(18,2) | Original total for fulfilled items |
 | discounted_total | discountedTotalPriceSet.shopMoney.amount | DECIMAL(18,2) | Discounted total for fulfilled items |
-| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+| extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 ---
 
@@ -355,7 +365,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | created_at | createdAt | TIMESTAMP | Refund creation time |
 | note | note | TEXT | Refund note/reason |
 | total_refunded | totalRefundedSet.shopMoney.amount | DECIMAL(18,2) | Total refund amount |
-| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+| extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 ---
 
@@ -372,7 +382,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | location_id | location.id | VARCHAR(50) | Restock location GID |
 | subtotal_amount | subtotalSet.shopMoney.amount | DECIMAL(18,2) | Line item subtotal refunded |
 | total_tax_amount | totalTaxSet.shopMoney.amount | DECIMAL(18,2) | Tax amount refunded |
-| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+| extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 ---
 
@@ -391,7 +401,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | reserved | quantities.reserved | INT | Reserved for other reasons |
 | updated_at | updatedAt | TIMESTAMP | Last update time |
 | snapshot_date | ETL | DATE | Snapshot date for historical tracking |
-| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+| extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 **Note:** This table stores daily snapshots for inventory trend analysis.
 
@@ -418,7 +428,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | line_items_count | lineItems.edges.length | INT | Number of line items |
 | line_items_json | lineItems | TEXT | Line items JSON for analysis |
 | shipping_address_json | shippingAddress | TEXT | Shipping address JSON |
-| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+| extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 **Note:** Only checkouts where `completedAt IS NULL` are truly abandoned.
 
@@ -443,7 +453,7 @@ Mirrors Shopify API structure exactly. One table per API object.
 | customer_id | customer.id | VARCHAR(50) | Associated customer GID |
 | order_id | order.id | VARCHAR(50) | Order that created it (if purchased) |
 | note | note | TEXT | Notes |
-| _extracted_at | ETL | TIMESTAMP | Extraction timestamp |
+| extracted_at | ETL | TIMESTAMP | Extraction timestamp |
 
 **Important limitation:** Shopify masks gift card codes - only `lastCharacters` (last 4 digits) is available via the API. The full voucher code lives in external systems (e.g., SQL Server for DYT). This is a key consideration for Layer 2 join strategy.
 
@@ -463,9 +473,9 @@ Reporting-optimized with pivoted arrays, denormalized attributes, and user-frien
 |--------|------|-------------|
 | date_key | INT | Primary key (YYYYMMDD) |
 | full_date | DATE | Actual date |
-| year | INT | Year (2026) |
-| quarter | INT | Quarter (1-4) |
-| month | INT | Month (1-12) |
+| cal_year | INT | Year (2026) |
+| cal_quarter | INT | Quarter (1-4) |
+| cal_month | INT | Month (1-12) |
 | month_name | VARCHAR(20) | January, February... |
 | week_of_year | INT | Week number (1-53) |
 | day_of_month | INT | Day (1-31) |
@@ -528,7 +538,7 @@ Reporting-optimized with pivoted arrays, denormalized attributes, and user-frien
 | rfm_monetary_score | INT | Monetary quintile (1-5) | 5 = highest spend |
 | rfm_combined_score | INT | R + F + M (3-15) | Overall RFM score |
 | rfm_segment | VARCHAR(30) | RFM business logic | Champions, Loyal, At Risk, etc. |
-| _loaded_at | TIMESTAMP | ETL | Load timestamp |
+| loaded_at | TIMESTAMP | ETL | Load timestamp |
 
 **Membership Tier Derivation (from tags):**
 
@@ -599,7 +609,7 @@ END AS membership_tier
 | product_status | VARCHAR(20) | stg_products.status | ACTIVE/DRAFT/ARCHIVED |
 | tags | VARCHAR(1000) | stg_products.tags | Product tags |
 | product_created_date | DATE | stg_products.created_at | Product creation |
-| _loaded_at | TIMESTAMP | ETL | Load timestamp |
+| loaded_at | TIMESTAMP | ETL | Load timestamp |
 
 ---
 
@@ -618,7 +628,7 @@ END AS membership_tier
 | country_code | VARCHAR(5) | address.countryCodeV2 | ISO country code |
 | postal_code | VARCHAR(20) | address.zip | Postal/ZIP code |
 | region | VARCHAR(50) | Derived from country | Geographic region |
-| _loaded_at | TIMESTAMP | ETL | Load timestamp |
+| loaded_at | TIMESTAMP | ETL | Load timestamp |
 
 ---
 
@@ -641,7 +651,7 @@ END AS membership_tier
 | usage_limit | INT | stg_discount_codes.usage_limit | Max uses |
 | current_usage_count | INT | stg_discount_codes.usage_count | Times used |
 | is_one_per_customer | BOOLEAN | stg_discount_codes.applies_once_per_customer | Limit flag |
-| _loaded_at | TIMESTAMP | ETL | Load timestamp |
+| loaded_at | TIMESTAMP | ETL | Load timestamp |
 
 ---
 
@@ -661,7 +671,7 @@ END AS membership_tier
 | country_code | VARCHAR(5) | stg_locations.country_code | Country code |
 | is_active | BOOLEAN | stg_locations.is_active | Active flag |
 | fulfills_online | BOOLEAN | stg_locations.fulfills_online_orders | Online fulfillment |
-| _loaded_at | TIMESTAMP | ETL | Load timestamp |
+| loaded_at | TIMESTAMP | ETL | Load timestamp |
 
 ---
 
@@ -758,7 +768,7 @@ END AS membership_tier
 | tags | VARCHAR(1000) | stg_orders.tags | Order tags |
 | notes | TEXT | stg_orders.note | Order notes |
 | **ETL** |
-| _loaded_at | TIMESTAMP | ETL | Load timestamp |
+| loaded_at | TIMESTAMP | ETL | Load timestamp |
 
 ---
 
@@ -818,7 +828,7 @@ END AS membership_tier
 | shipping_country | VARCHAR(100) | From fact_order | Ship to country |
 | shipping_country_code | VARCHAR(5) | From fact_order | Ship to country code |
 | **ETL** |
-| _loaded_at | TIMESTAMP | ETL | Load timestamp |
+| loaded_at | TIMESTAMP | ETL | Load timestamp |
 
 ---
 
@@ -872,7 +882,7 @@ END AS membership_tier
 | is_within_48h | BOOLEAN | fulfillment_time_hours <= 48 | Fulfilled within 48h |
 | is_late | BOOLEAN | fulfillment_time_hours > 72 | Took more than 72h |
 | **ETL** |
-| _loaded_at | TIMESTAMP | ETL | Load timestamp |
+| loaded_at | TIMESTAMP | ETL | Load timestamp |
 
 ---
 
@@ -921,7 +931,7 @@ END AS membership_tier
 | is_low_stock | BOOLEAN | available_quantity < threshold | Low stock warning |
 | is_overstocked | BOOLEAN | available_quantity > high_threshold | Overstock flag |
 | **ETL** |
-| _loaded_at | TIMESTAMP | ETL | Load timestamp |
+| loaded_at | TIMESTAMP | ETL | Load timestamp |
 
 **Note:** Threshold values for low_stock and overstocked flags are configurable per product category.
 
@@ -972,7 +982,7 @@ END AS membership_tier
 | customer_email | VARCHAR(255) | dim_customer.email | Customer email |
 | customer_name | VARCHAR(200) | dim_customer.full_name | Customer name |
 | **ETL** |
-| _loaded_at | TIMESTAMP | ETL | Load timestamp |
+| loaded_at | TIMESTAMP | ETL | Load timestamp |
 
 ---
 
