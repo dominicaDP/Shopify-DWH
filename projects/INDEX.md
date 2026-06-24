@@ -1,14 +1,14 @@
 # Projects Index
 
-**Last Updated:** 2026-05-15
+**Last Updated:** 2026-06-24
 
 ## Active Projects
 
 | Project | Type | Status | Priority | Health |
 |---------|------|--------|----------|--------|
-| shopify-poc | Experiment | Active | HIGH | Healthy |
-| research-notes | Work | On Hold | HIGH | Healthy |
-| dyt-dwh | Work | On Hold | HIGH | Healthy |
+| shopify-poc | Experiment | ✅ Complete — verdict GO | HIGH | Healthy |
+| research-notes | Work | Next up (Layer 1 build) | HIGH | Healthy |
+| dyt-dwh | Work | On Hold (after Layer 1) | HIGH | Healthy |
 
 ## Project Health Legend
 
@@ -23,24 +23,26 @@
 ### shopify-poc (Layer 1 POC)
 
 **Type:** Experiment
-**Status:** Active — Phase 0 complete, Phase 1 next
+**Status:** ✅ Complete (2026-06-24) — all phases passed, verdict **GO**
 **Priority:** HIGH
 **Health:** Healthy
 
 **Quick Links:**
+- [Findings + decision](./shopify-poc/findings.md)
 - [Context](./shopify-poc/context.md)
 - [Plan](./shopify-poc/plan.md)
 - [Tasks](./shopify-poc/tasks.md)
 - [Notes](./shopify-poc/notes.md)
+- [Code + run-book](../code/poc/README.md)
 
-**Current Focus:**
-- ✅ Phase 0: Docker + Exasol + Python venv + Shopify OAuth token all working
-- ⬅ Phase 1 next: Create `SHOPIFY_STG` schema + DDL for 4 POC tables
+**Outcome:**
+- Full pipeline built & validated: Shopify → SHOPIFY_STG → SHOPIFY_DWH star schema → metric
+- Metric reconciles to the Fivetran source within **0.30%** (gap = the known 60-day order cap)
+- Recommendation: **GO** — proceed to the production Layer 1 build
 
 **Recent Activity:**
-- Phase 0 complete (2026-05-15) — all three streams green, ready for Phase 1
-- Project created with scope, plan, and tasks (2026-05-15)
-- Decisions: Community Edition (not Personal), no anonymisation, no timeline
+- Phases 1–5 completed in one session (2026-06-24); reconciliation passed
+- Phase 0 complete (2026-05-15) — Docker + Exasol + Python + Shopify OAuth
 
 ---
 
