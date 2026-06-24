@@ -33,13 +33,12 @@
 
 ### Phase 5 — Decision
 
-- [ ] 5.1 Write up findings: what worked, what was harder than expected, what broke
-  Priority: NORMAL | Phase: 5
-- [ ] 5.2 Capture measurements: extraction time, query time, data volume
-  Priority: NORMAL | Phase: 5
-- [ ] 5.3 Productisation notes — what would change for prod
-  Priority: NORMAL | Phase: 5
-- [ ] 5.4 Go / no-go / pivot decision documented
+- [x] 5.1 Write up findings: what worked, what was harder, what broke → `findings.md` §2
+- [~] 5.2 Capture measurements: extraction time, query time, data volume → `findings.md` §4
+  Done: data volume (15.45 MB raw total, ~0.008% of Community cap), query time (metric 79–143ms).
+  Outstanding: precise per-table extraction timing (only observed sub-2-min, not benchmarked).
+- [x] 5.3 Productisation notes — what would change for prod → `findings.md` §5
+- [ ] 5.4 Go / no-go / pivot decision documented → `findings.md` §6 (provisional; gated on 4.2/4.3 reconciliation)
   Priority: NORMAL | Phase: 5
 
 ---

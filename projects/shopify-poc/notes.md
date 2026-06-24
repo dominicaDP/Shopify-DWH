@@ -205,3 +205,36 @@ To browse the local POC data in DataGrip, create an Exasol data source:
   `Host = localhost/<FINGERPRINT>` (the failed Test Connection error prints the exact fingerprint to
   paste). The fingerprint changes only if the container is destroyed+recreated, not on stop/start.
 - Container must be running: `docker start exasol-db`.
+
+---
+
+### 2026-06-24 — Phase 5.2 measurements (data volume + query performance)
+
+Captured against the live local instance (`SYS.EXA_ALL_OBJECT_SIZES` + timed query runs).
+
+**Data volume — the whole warehouse is tiny:**
+| Table | Raw (on-disk, compressed) |
+|-------|---------------------------|
+| STG_PRODUCTS | 4.9 MB |
+| DIM_PRODUCT | 3.0 MB |
+| STG_ORDERS | 2.4 MB |
+| STG_ORDER_LINE_ITEMS | 1.6 MB |
+| FACT_ORDER_LINE_ITEM | 1.5 MB |
+| STG_PRODUCT_VARIANTS | 1.4 MB |
+| FACT_ORDER | 0.7 MB |
+| DIM_DATE | 0.3 MB |
+| **TOTAL** | **15.45 MB raw** (~13.8 MB in memory) |
+
+- Against the Community Edition 200 GB cap that's **~0.008%**. Even scaling to 10 years of full
+  order history (vs the current 60 days) and the complete 17-table design, DYT's footprint stays in
+  the low single-digit GB — Community capacity is a non-issue for this workload. Strong signal that
+  Exasol is over-provisioned for DYT volume (a cost/fit point for the productisation write-up).
+
+**Query performance:**
+- "Revenue by product by day, last 60 days" (3,575 rows via the view): **79–143 ms** (cold ~143ms,
+  warms to ~80ms). No tuning, no distribution keys, default everything. Plenty fast for interactive use.
+
+**Extraction timing (observed, NOT formally benchmarked):** each loader completed in well under two
+minutes; orders + line items were slowest due to nested pagination (line items pull 50 orders/page ×
+up to 100 lines). If precise per-table extraction timings are needed for the Phase 5 write-up, re-run
+the loaders with wall-clock instrumentation — current runs only logged progress, not totals.
