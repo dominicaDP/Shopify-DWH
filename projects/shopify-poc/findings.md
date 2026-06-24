@@ -97,11 +97,33 @@ lookback is shorter. Revisit `read_all_orders` if the production build needs dee
 
 ---
 
-## 6. Go / no-go (5.4) — OPEN
+## 6. Reconciliation vs Fivetran (4.2/4.3) — PASSED
 
-**Provisional read: the technical approach is validated.** Extraction, warehousing, and the metric
-all work on real data with good performance and a tiny footprint. The one remaining gate is
-**reconciliation against the existing Fivetran source (4.2/4.3)** — needed to confirm the numbers
-match a trusted baseline within tolerance. First align the revenue definition, then compare.
+Compared against the existing Fivetran/SQL Server source (`shopify.order_line` ⋈ `shopify.order`),
+identical complete-days window (2026-04-25 → 2026-06-23, UTC), identical definition
+(`Σ(price·qty − total_discount)`, refunds not netted, cancelled included, `_fivetran_deleted` excluded).
 
-Once reconciliation lands, this section becomes the documented go / no-go / pivot decision.
+| Measure | Fivetran | POC (ours) | Δ |
+|---------|---------:|-----------:|---|
+| Revenue | R2,184,381 | R2,177,758 | +R6,623 (**0.30%**) |
+| Orders  | 3,202 | 3,195 | +7 |
+| Products | 678 | 678 | **exact** |
+| Units | 6,016 | 5,997 | +19 |
+
+- Per-product: the large majority match to the rand; the NULL/Unknown-product bucket is
+  **R29,250 / 40 units on both sides (exact)**; remaining diffs are a few products off by 1 unit.
+- **The 0.30% gap is fully explained by the known 60-day cap**, not a systematic error: our earliest
+  order is 2026-04-25 12:46 UTC, so we miss that boundary day's morning orders, which Fivetran (long
+  continuous sync) retains. That ≈ the 7 extra orders / R6,623. Everything inside the cleanly-covered
+  range ties out. No missing category, no timezone/grain/double-count error.
+
+## 7. Go / no-go (5.4) — **GO** (recommendation, pending Dom's sign-off)
+
+The POC met its success criteria: local Exasol runs and is reachable; 4 STG tables load with proven
+idempotency; 4 DWH tables reconcile to STG to the cent with zero NULL FKs; the metric runs; and it
+**reconciles to the trusted Fivetran baseline within 0.30%, with the only gap traced to the
+already-accepted 60-day scope limitation.**
+
+**Recommendation: GO** — proceed to the production Layer 1 build (resume `research-notes` ETL), with
+the productisation changes in §5 folded in from the start. The throwaway POC has done its job: the
+Shopify → Exasol → star-schema → metric approach is validated on real DYT data.

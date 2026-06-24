@@ -19,18 +19,6 @@
 
 ## Normal
 
-### Phase 4 — The Metric (in progress)
-
-- [ ] 4.2 Run the same metric against current Fivetran-based source — **NEEDS DOM** (access to
-  existing SQL Server / Fivetran system). POC value for the 60-day window = **R2,195,132**.
-  Priority: NORMAL | Phase: 4
-- [ ] 4.3 Compare outputs, document discrepancies and tolerance band
-  Priority: NORMAL | Phase: 4
-  Note: nail the revenue definition first — POC currently sums line `net_amount` (post-discount,
-  refunds NOT netted). Match whatever the Fivetran report uses before comparing.
-- [ ] **Gate 4→5:** Numbers match within explainable tolerance
-  Priority: NORMAL | Phase: 4
-
 ### Phase 5 — Decision
 
 - [x] 5.1 Write up findings: what worked, what was harder, what broke → `findings.md` §2
@@ -38,8 +26,15 @@
   Done: data volume (15.45 MB raw total, ~0.008% of Community cap), query time (metric 79–143ms).
   Outstanding: precise per-table extraction timing (only observed sub-2-min, not benchmarked).
 - [x] 5.3 Productisation notes — what would change for prod → `findings.md` §5
-- [ ] 5.4 Go / no-go / pivot decision documented → `findings.md` §6 (provisional; gated on 4.2/4.3 reconciliation)
-  Priority: NORMAL | Phase: 5
+- [x] 5.4 Go / no-go / pivot decision documented → `findings.md` §7: **GO** (recommendation, pending sign-off)
+
+### Phase 4 — The Metric + Reconciliation (2026-06-24)
+
+- [x] 4.1 Metric "Revenue by product by day" — see Phase 3 block below
+- [x] 4.2 Ran metric against Fivetran source (`shopify.order_line` ⋈ `shopify.order`), same window/definition
+- [x] 4.3 Compared: **0.30% gap** (FT R2,184,381 vs ours R2,177,758), product count exact, Unknown bucket
+  exact. Gap fully explained by the known 60-day cap (boundary-day morning orders). → `findings.md` §6
+- [x] **Gate 4→5 PASSED:** numbers match within explainable tolerance (0.30%, traced to 60-day scope)
 
 ---
 
