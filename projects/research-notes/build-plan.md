@@ -26,11 +26,38 @@ Source of truth for the schema: `schema-layered.md` (v1.1, Exasol-safe).
 
 ## Prerequisites (do first — external, possibly needs others)
 
-- **Shopify scopes:** add `read_all_orders` (history beyond 60 days) and `read_customers`
-  (customer_id, LTV/RFM). App config → add scopes → create version → release → re-run
-  `oauth_install.py` for a fresh token. *(read_inventory too if cost/stock is in scope.)*
-- **Decide retention/backfill depth** (how much order history to load on first run).
-- **Target host:** decide where production Exasol lives (the POC was throwaway local Docker).
+- **Shopify scopes:** ✅ DECIDED (2026-06-24) — add `read_all_orders` (history beyond 60 days),
+  `read_customers` (customer_id → dim_customer, LTV/RFM), AND `read_inventory` (stock-on-hand →
+  stg_inventory_levels, fact_inventory_snapshot). All three granted in one app-config pass:
+  add scopes → create version → release → re-run `oauth_install.py` for a fresh token.
+  `read_customers` and `read_inventory` are both part of the full Layer 1 design.
+  Rationale for `read_inventory`: this is a **foundational, productisable** build (proving the
+  broader Shopify-DWH concept, not just DYT), so build the design complete rather than trimmed —
+  even though margin already works via `read_products` unit cost.
+- **Historical backfill:** ✅ DECIDED (2026-06-24) — backfill straight from Shopify via
+  `read_all_orders`, **not** by seeding from the existing Fivetran/SQL Server data. Rationale:
+  reuses the proven POC loaders as-is (vs. writing throwaway Fivetran→our-schema mapping + a
+  cross-system SQL-Server→Exasol pull), and makes a clean break from the Fivetran stack this
+  project replaces. The 60-day cap is an *initial-ingestion* concern only — once the ETL runs
+  daily, the warehouse accumulates its own history (we own retention), so `read_all_orders` is a
+  one-time backfill enabler, not an ongoing requirement.
+- **Backfill depth:** ✅ DECIDED (2026-06-24) — pull **all** available history on the first run.
+  Volume is trivial (full design = low single-digit GB), so there's no reason to limit it.
+- **ETL host:** ✅ DECIDED (2026-06-24) — a **basic dedicated Linux VM** for the ETL, on the same
+  network as Exasol. **Not** co-located on the Exasol server: keep the DB node dedicated to the DB
+  (Exasol owns its RAM/CPU), keep the internet-facing extraction + API secrets off the DB host, and
+  keep ETL deploy/patch/restart independent of the database. Volume is tiny, so a modest VM suffices;
+  it just needs Python + a scheduler (systemd timers / cron) + network reach to the instance.
+- **Secrets management:** ✅ DECIDED (2026-06-24) — **locked-down env file** on the ETL VM: secrets
+  in a file outside the repo, owned by a dedicated ETL OS user, perms `600`, loaded by the systemd
+  service at runtime. Secrets never in git. The Exasol credential is a **dedicated least-privilege
+  user** scoped to the two new schemas, **not** `SYS` (also answers the ETL user/role quick-check).
+  **Azure Key Vault explicitly ruled out.** Can graduate to systemd `LoadCredential` later without
+  rework if tighter handling is ever wanted.
+- **Target host:** ✅ DECIDED (2026-06-24) — Dom's existing production Exasol instance (the one
+  already running his other DWH). Shopify DWH lands as new schemas (`SHOPIFY_STG`, `SHOPIFY_DWH`)
+  on that same instance. No new instance/edition to stand up; Community-Edition limits were
+  POC-only. Volume is negligible (POC = 15.45 MB; full design = low single-digit GB).
 
 ---
 
@@ -98,8 +125,16 @@ is already complete. Keep Layer 1 generic/productisable; Layer 2 joins via `vouc
 
 ## Open decisions to confirm before/early in the build
 
-- Backfill depth (full history vs N months) once `read_all_orders` is granted.
-- Production host + secrets management approach.
-- Whether `read_inventory` (cost/stock) is in Layer 1 scope now or deferred.
-- Revenue definition for the canonical metric (POC used line `net_amount`, refunds not netted) —
-  pin it to match the agreed Fivetran/business definition.
+- ~~Backfill depth~~ ✅ full history from Shopify on first run, via `read_all_orders` (see Prerequisites).
+- ~~Production host~~ ✅ existing Exasol instance (same one as the other DWH).
+- ~~Secrets management~~ ✅ locked-down env file, dedicated least-privilege Exasol user (see Prerequisites).
+- ~~ETL host~~ ✅ dedicated basic Linux VM (see Prerequisites).
+- ~~Revenue definition~~ ✅ DECIDED (2026-06-24) — **store atomic components, define measures in the
+  view layer.** The fact table stores separate additive columns (`gross_sales`, `discount`, `refund`,
+  `tax`, `shipping`) — never a single baked-in "revenue." The metric/view layer derives every named
+  measure from them (gross sales, net sales = gross − refund, net-of-tax, etc.), so all definitions
+  are serviceable side by side. **Headline = net sales (provisional, reversible label only)** — it's a
+  one-line view default, changeable in minutes with no ETL re-run / schema change / reload. Therefore
+  **not a blocker**: confirm what current business reporting leads with whenever convenient and flip
+  the default if needed. Conventions: ex-tax / ex-shipping / post-discount, cancelled included.
+- ~~Whether `read_inventory` is in Layer 1 scope~~ ✅ IN — foundational/productisable build, build complete (see Prerequisites).
