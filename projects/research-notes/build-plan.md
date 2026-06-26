@@ -100,10 +100,20 @@ deploys/runs until Gate A.
 | Step | What | Status |
 |------|------|--------|
 | B.1 | Generate + deploy DDL for all STG tables from `schema-layered.md` | ◐ written, not deployed |
-| B.2 | Build loaders, reusing the POC pattern. Group by extraction shape: | ◐ 14/18 (+2 deferred) |
-|     | • simple full-load dims: ✅ products, ✅ variants, ✅ customers, ✅ locations · ⏸ discount_codes† | |
-|     | • watermark-incremental + MERGE: ✅ orders, ✅ line_items, ✅ transactions, ✅ tax_lines, ✅ discount_apps, ✅ shipping_lines, ✅ fulfillments, ✅ fulfillment_line_items, ✅ refunds, ✅ refund_line_items · ⬜ inventory_levels, ⬜ abandoned_checkouts‡ · ⏸ gift_cards† | |
-|     | _8 order-children share `loaders/_orders_source.py` (orders-pagination + watermark + merge). Each loader's output keys verified == its DDL columns. Remaining GraphQL-shape risk documented inline (verify at first run)._ | |
+| B.2 | Build loaders, reusing the POC pattern. Group by extraction shape: | ✅ 16/18 in-scope (+2 deferred) |
+|     | • simple full-load: ✅ products, ✅ variants, ✅ customers, ✅ locations, ✅ abandoned_checkouts‡ · ⏸ discount_codes† | |
+|     | • watermark-incremental + MERGE: ✅ orders, ✅ line_items, ✅ transactions, ✅ tax_lines, ✅ discount_apps, ✅ shipping_lines, ✅ fulfillments, ✅ fulfillment_line_items, ✅ refunds, ✅ refund_line_items · ⏸ gift_cards† | |
+|     | • daily snapshot (MERGE on item+location+date): ✅ inventory_levels | |
+|     | _8 order-children share `loaders/_orders_source.py`. Every loader's output keys verified == its DDL columns. Remaining risk is GraphQL field-shape only (documented inline, verify at first run)._ | |
+
+> **Inventory design — DECIDED (2026-06-26), productisation-aware.** Built as a
+> **daily snapshot** (the productizable superset): one loader stamps today's date and
+> MERGEs on (item, location, snapshot_date). "Current stock vs history" is a
+> *deployment* choice, not a code fork — run daily → history; run once / short
+> retention → current-state. Sits behind `features.include_inventory_levels` (default
+> off) with depth governed by the `retention` config (productization-strategy.md). No
+> top-level inventory query exists, so it walks inventoryItems → inventoryLevels →
+> quantities(names). Scope: read_inventory ✅.
 | B.3 | Idempotency test on every incremental loader (re-run → 0 dups) | ⬜ |
 
 **Gate B:** all 18 STG tables populated; re-runs produce 0 duplicates; row counts sane vs Admin.
