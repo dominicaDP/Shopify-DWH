@@ -100,9 +100,10 @@ deploys/runs until Gate A.
 | Step | What | Status |
 |------|------|--------|
 | B.1 | Generate + deploy DDL for all STG tables from `schema-layered.md` | ◐ written, not deployed |
-| B.2 | Build loaders, reusing the POC pattern. Group by extraction shape: | ◐ 6/18 |
-|     | • simple full-load dims: ✅ products, ✅ variants, ✅ customers, ✅ locations · ⬜ discount_codes† | |
-|     | • watermark-incremental + MERGE: ✅ orders, ✅ line_items · ⬜ transactions, tax_lines, discount_apps, shipping_lines, fulfillments, fulfillment_line_items, refunds, refund_line_items, inventory_levels, abandoned_checkouts‡, gift_cards† | |
+| B.2 | Build loaders, reusing the POC pattern. Group by extraction shape: | ◐ 14/18 (+2 deferred) |
+|     | • simple full-load dims: ✅ products, ✅ variants, ✅ customers, ✅ locations · ⏸ discount_codes† | |
+|     | • watermark-incremental + MERGE: ✅ orders, ✅ line_items, ✅ transactions, ✅ tax_lines, ✅ discount_apps, ✅ shipping_lines, ✅ fulfillments, ✅ fulfillment_line_items, ✅ refunds, ✅ refund_line_items · ⬜ inventory_levels, ⬜ abandoned_checkouts‡ · ⏸ gift_cards† | |
+|     | _8 order-children share `loaders/_orders_source.py` (orders-pagination + watermark + merge). Each loader's output keys verified == its DDL columns. Remaining GraphQL-shape risk documented inline (verify at first run)._ | |
 | B.3 | Idempotency test on every incremental loader (re-run → 0 dups) | ⬜ |
 
 **Gate B:** all 18 STG tables populated; re-runs produce 0 duplicates; row counts sane vs Admin.
