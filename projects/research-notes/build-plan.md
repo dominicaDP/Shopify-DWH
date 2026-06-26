@@ -85,13 +85,18 @@ both green → `python -m shopify_dwh.healthcheck` prints **Gate A: GREEN**.
 
 ## Phase B — Full STG layer (17 tables)
 
-| Step | What |
-|------|------|
-| B.1 | Generate + deploy DDL for all 17 STG tables from `schema-layered.md` |
-| B.2 | Build loaders, reusing the POC pattern. Group by extraction shape: |
-|     | • simple full-load dims: products, variants, customers, locations, discount_codes |
-|     | • watermark-incremental + MERGE: orders, line_items, transactions, tax_lines, discount_apps, shipping_lines, fulfillments, fulfillment_line_items, refunds, refund_line_items, inventory_levels, abandoned_checkouts, gift_cards |
-| B.3 | Idempotency test on every incremental loader (re-run → 0 dups) |
+**Status (2026-06-26):** the 4 POC loaders are ported into
+`code/etl/shopify_dwh/loaders/` (products, variants, orders, line_items) as the
+proven base — config-driven schema, secure connection, `customer_id` now populated
+(read_customers). 13 STG loaders + all DDL remain. Loaders can't *run* until Gate A.
+
+| Step | What | Status |
+|------|------|--------|
+| B.1 | Generate + deploy DDL for all 17 STG tables from `schema-layered.md` | ⬜ |
+| B.2 | Build loaders, reusing the POC pattern. Group by extraction shape: | ◐ 4/17 |
+|     | • simple full-load dims: ✅ products, ✅ variants · ⬜ customers, locations, discount_codes | |
+|     | • watermark-incremental + MERGE: ✅ orders, ✅ line_items · ⬜ transactions, tax_lines, discount_apps, shipping_lines, fulfillments, fulfillment_line_items, refunds, refund_line_items, inventory_levels, abandoned_checkouts, gift_cards | |
+| B.3 | Idempotency test on every incremental loader (re-run → 0 dups) | ⬜ |
 
 **Gate B:** all 17 STG tables populated; re-runs produce 0 duplicates; row counts sane vs Admin.
 
