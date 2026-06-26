@@ -88,11 +88,18 @@ both green → `python -m shopify_dwh.healthcheck` prints **Gate A: GREEN**.
 **Status (2026-06-26):** the 4 POC loaders are ported into
 `code/etl/shopify_dwh/loaders/` (products, variants, orders, line_items) as the
 proven base — config-driven schema, secure connection, `customer_id` now populated
-(read_customers). 13 STG loaders + all DDL remain. Loaders can't *run* until Gate A.
+(read_customers). **Full STG DDL written** — `code/etl/ddl/01_stg_schema.sql` builds
+all 18 tables (234 cols), with `verify_stg.sql` + a `ddl/README.md` documenting
+type mappings and the reserved-word watch list. 13 STG loaders remain. Nothing
+deploys/runs until Gate A.
+
+> **Count note:** the staging layer is **18** tables, not 17 — `stg_gift_cards` was
+> added during DYT research after the "17" label was set. Worth reconciling the
+> label in MEMORY/schema-layered.md intro. See `code/etl/ddl/README.md`.
 
 | Step | What | Status |
 |------|------|--------|
-| B.1 | Generate + deploy DDL for all 17 STG tables from `schema-layered.md` | ⬜ |
+| B.1 | Generate + deploy DDL for all STG tables from `schema-layered.md` | ◐ written, not deployed |
 | B.2 | Build loaders, reusing the POC pattern. Group by extraction shape: | ◐ 4/17 |
 |     | • simple full-load dims: ✅ products, ✅ variants · ⬜ customers, locations, discount_codes | |
 |     | • watermark-incremental + MERGE: ✅ orders, ✅ line_items · ⬜ transactions, tax_lines, discount_apps, shipping_lines, fulfillments, fulfillment_line_items, refunds, refund_line_items, inventory_levels, abandoned_checkouts, gift_cards | |

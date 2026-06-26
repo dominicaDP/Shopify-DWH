@@ -1,4 +1,0 @@
-# DDL + verification SQL lands here in Phase B (STG) and Phase C (DWH).
-# Port the POC patterns from ../../poc/ddl/ (digit-cross-join dim_date, GID
-# extraction, ROW_NUMBER surrogate keys, Unknown members) and generate the full
-# 17 STG + 12 DWH objects from projects/research-notes/schema-layered.md (v1.1).
