@@ -21,6 +21,8 @@ python -m shopify_dwh.ddl_runner ddl/verify_stg.sql      # confirm 18 tables, al
 | `04_dim_time.sql` | C | generate `dim_time` (24 rows, one per hour) |
 | `05_transforms.sql` | C | STG → DWH transforms (dims first, then facts) |
 | `06_verify_dwh.sql` | C | Gate C: row counts, reconciliation, FK/sentinel checks |
+| `07_metric_views.sql` | D | metric view layer — all 57 metrics as named measures |
+| `08_reconcile.sql` | D | our-side reconciliation queries (vs Fivetran) |
 
 Deploy order (run each with the DDL runner, from `code/etl/`):
 
@@ -30,6 +32,8 @@ python -m shopify_dwh.ddl_runner ddl/03_dim_date.sql     # generate dim_date
 python -m shopify_dwh.ddl_runner ddl/04_dim_time.sql     # generate dim_time
 python -m shopify_dwh.ddl_runner ddl/05_transforms.sql   # STG -> DWH (dims then facts)
 python -m shopify_dwh.ddl_runner ddl/06_verify_dwh.sql   # Gate C verification
+python -m shopify_dwh.ddl_runner ddl/07_metric_views.sql # metric view layer (Phase D)
+python -m shopify_dwh.ddl_runner ddl/08_reconcile.sql    # our-side reconcile (edit window)
 ```
 
 Full pipeline: `01_stg_schema.sql` → load STG (the loaders) → `02`→`06` above.
@@ -127,6 +131,28 @@ Sentinel/Unknown members are inserted with fixed keys (`-1` Unknown, `0` No-Disc
 that `ROW_NUMBER()` (which starts at 1) never collides with, so fact FKs are never NULL.
 `dim_discount` lands only its `0` sentinel until `read_discounts` is granted and the
 deferred `stg_discount_codes` loader runs — the table and transform are already wired.
+
+## Phase D (metric views) — what it is
+
+`07_metric_views.sql` is the **named-measure layer**: the facts hold atomic
+components, the views define the headline measures ("Revenue", "AOV", margin %, the
+rates). Reporting tools (Yellowfin) point here, not at raw facts. The 57 metrics in
+`metrics-lineage-reference.md` share grains, so they map onto ~14 reporting views
+(each view's header lists the metric numbers it serves, and the file's coverage map
+lists all 57). `v_revenue_by_product_by_day` is ported verbatim from the POC so the
+Fivetran reconciliation compares like-for-like.
+
+`08_reconcile.sql` is the our-side reconciliation — the production form of the POC's
+`recon_our_side.sql` (same definition that hit a 0.30% gap), minus the 60-day floor.
+Edit the `DATE` literals to the window being reconciled; run the matching Fivetran
+query; compare orders / products / units / net revenue. This is a **runtime** Gate-D
+step (needs the live pipeline + Fivetran), not a deploy step.
+
+Three metrics can't be served by the current model and are documented as gaps in the
+view file (not silently dropped): **28/3.9 Product Return Rate** (needs a refund-line
+fact with product_key), **29 Sell-Through** (needs >1 daily inventory snapshot),
+**36/37 Revenue by Landing/Referring Site** (those fields were removed from the
+2026-04 Order API; columns exposed but NULL).
 
 ### A note on "17 vs 18"
 

@@ -7,9 +7,10 @@ from the plan, the scope decisions, and the verify-at-first-run notes scattered
 through the loader docstrings.
 
 **One-line status:** Phase A (scaffold) + Phase B (STG: DDL + 16/18 loaders) +
-**Phase C (DWH: all 12 objects + transforms + verify)** are **code-complete**.
-Nothing has been deployed or run — that waits on the infra prerequisites in §A.
-Phase D (metric views + Fivetran reconcile) is the next code-able step.
+**Phase C (DWH: 12 objects + transforms + verify)** + **Phase D (metric view layer +
+reconcile queries)** are **code-complete**. Nothing has been deployed or run — that
+waits on the infra prerequisites in §A. Phase E (productionisation) + the runtime
+Fivetran reconcile are what's left.
 
 ---
 
@@ -97,8 +98,13 @@ field-shape miss is to drop/NULL it (POC precedent), and for a reserved word to
       dim_customer, address-JSON parse → dim_geography. Revenue stored as **atomic
       components** in the facts; named measures deferred to the Phase D view layer
       (decided). First-run checks folded into §C above. Not yet deployed (needs Gate A).
-- [ ] **Phase D — metric layer**: the 57 metric views (metrics-lineage-reference.md)
-      + reconcile a sample vs Fivetran (reuse the POC window/definition-alignment method).
+- [x] **Phase D — metric layer** ✅ *code-complete 2026-06-26.* `ddl/07_metric_views.sql`
+      — all 57 metrics as named measures across ~14 reporting views (atomic components in
+      facts, measures defined here per the decision); `v_revenue_by_product_by_day` ported
+      verbatim from the POC as the reconciliation anchor. `ddl/08_reconcile.sql` = our-side
+      reconcile queries (POC method, 60-day floor removed). **Runtime reconcile vs Fivetran
+      still pending** (needs the live pipeline — a Gate-D activity, not code). Documented gaps:
+      metrics 28/3.9 (product return rate), 29 (sell-through), 36/37 (landing/referring — API-removed).
 - [ ] **Phase E — productionisation**: scheduling (systemd timers), error handling +
       logging + run monitoring, distribution keys where warranted, runbook.
 - [ ] **(deferred)** discount_codes + gift_cards loaders — only if §B reverses.
