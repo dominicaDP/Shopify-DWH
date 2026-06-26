@@ -15,16 +15,16 @@ Track the growth and effectiveness of your second brain.
 ### Patterns
 | Metric | Count |
 |--------|-------|
-| Total patterns | 37 |
+| Total patterns | 39 |
 | LOW confidence | 30 |
-| MEDIUM confidence | 5 |
+| MEDIUM confidence | 7 |
 | HIGH confidence | 2 |
 
 ### Memory
 | Type | Entries |
 |------|---------|
-| Semantic (facts/patterns) | 1 file (dev-patterns.md — 37 patterns) |
-| Episodic (completed work) | 17 |
+| Semantic (facts/patterns) | 1 file (dev-patterns.md — 39 patterns) |
+| Episodic (completed work) | 18 |
 | Procedural (workflows) | 0 |
 
 ### Projects
@@ -39,17 +39,21 @@ Track the growth and effectiveness of your second brain.
 ## Activity Metrics
 
 ### This Week (2026-06-26)
-- `/learn` sessions: 3
-- Patterns extracted: 3 new, 3 reinforced (1 promoted to HIGH)
-- Tasks completed: Layer 1 build — Phase A scaffold + full STG DDL (18 tables) + 16/18 STG loaders
+- `/learn` sessions: 4
+- Patterns extracted: 5 new, 9 reinforced (3 promotions: Mid-Session Checkpointing → HIGH,
+  Star Schema → MEDIUM, Exasol Identifier & Type Constraints → MEDIUM)
+- Tasks completed: **Layer 1 build code-complete (Phases A–E)** — scaffold + full STG (18 tables,
+  16/18 loaders) + DWH (12 objects + transforms + verify) + 57 metric views + reconcile +
+  orchestrator/systemd/runbook. 6 commits across two sessions, merged to master.
 - Ideas captured: 0
-- Milestone: **production build started** — first full extraction layer; first "verify-without-infra"
-  and "snapshot = productizable superset" patterns; Mid-Session Checkpointing → HIGH
+- Milestone: **the entire infra-independent build is done** — everything left is execution gated on
+  the 3 infra prerequisites.
 
 ### Cumulative
-- `/learn` sessions: 8
-- Patterns extracted: 37 total
-- Pattern promotions: 3 (Two-Layer DWH → MEDIUM, Mid-Session Checkpointing → MEDIUM → HIGH)
+- `/learn` sessions: 9
+- Patterns extracted: 39 total
+- Pattern promotions: 5 (Two-Layer DWH → MEDIUM, Mid-Session Checkpointing → MEDIUM → HIGH,
+  Star Schema → MEDIUM, Exasol Identifier & Type Constraints → MEDIUM)
 - Projects completed: 1 (shopify-poc)
 
 ---
@@ -67,20 +71,25 @@ Track the growth and effectiveness of your second brain.
 
 ## Growth Trends
 
-### Week 13 (2026-06-26) — production build started
+### Week 13 (2026-06-26) — Layer 1 build code-complete (A–E)
 - Starting patterns: 34
-- Ending patterns: 37
-- Episodic entries: 16 → 17
-- Growth: The production Layer 1 build began — Phase A scaffold + full 18-table STG DDL + 16/18 STG
-  loaders, all pre-Gate-A. Three new patterns centred on *building without the live environment*:
-  verify-mapping-without-live-deps, snapshot-as-productizable-superset, surface-permission-gaps. First
-  HIGH-confidence promotion of a *process* pattern (Mid-Session Checkpointing, 5 uses).
+- Ending patterns: 39
+- Episodic entries: 16 → 18
+- Growth: The whole infra-independent Layer 1 build landed in two sessions. **STG session:** scaffold
+  + 18-table DDL + 16 loaders → patterns verify-mapping-without-live-deps, snapshot-as-productizable-
+  superset, surface-permission-gaps; Mid-Session Checkpointing → HIGH. **DWH/views/ops session:** full
+  12-object star + 57 metric views + orchestrator/systemd/runbook → patterns in-warehouse-JSON-extraction
+  and thin-subprocess-orchestrator; Star Schema and Exasol Identifier both promoted to MEDIUM on the
+  full build. Theme of the week: *build everything not gated by infra, so deployment becomes execution-only.*
 
 **Key Milestones:**
 - [x] Production code exists (`code/etl/`) — scaffold + 16 loaders + full STG DDL
 - [x] First static-verification technique (output keys == schema columns, no infra)
 - [x] First productisation-shaped design pattern (snapshot superset + feature flag)
 - [x] Second HIGH-confidence pattern (Mid-Session Checkpointing)
+- [x] Full DWH star + metric layer built (Phases C/D); ops scaffolding built (Phase E)
+- [x] Two patterns promoted to MEDIUM on full-build validation (Star Schema, Exasol Constraints)
+- [x] **All code-able work complete** — remaining work is infra/execution only
 
 ### Week 12 (2026-06-24) — first implementation
 - Starting patterns: 28
@@ -144,8 +153,8 @@ Track the growth and effectiveness of your second brain.
 | data-modeling | 9 | Star Schema, Pivot Transformation, Variant Grain, Cross-System Join, Pre-Aggregated Fact, Metrics-Driven, Data Investigation, Store Atomic Components, Snapshot = Productizable Superset |
 | process | 10 | Validate Schema vs API, Mid-Session Checkpointing, Design-on-Paper, Reconcile (Window+Definition), Walking-Skeleton POC, Evaluate Existing Tools, Evidence-Based Building, Follow Conventions, Markdown-to-Word, Surface Permission Gaps |
 | shopify-api | 9 | MoneyBag, Bulk Operations, Deprecated Fields, Plan vs Actual, Cost-Based Throttling |
-| exasol | 2 | Star Schema Optimization, Identifier & Type Constraints |
-| data-engineering | 2 | Idempotent Incremental Loading (Watermark + MERGE), Verify Output Mapping (no live deps) |
+| exasol | 3 | Star Schema Optimization, Identifier & Type Constraints, In-Warehouse JSON Extraction |
+| data-engineering | 3 | Idempotent Incremental Loading, Verify Output Mapping (no live deps), Thin Subprocess Orchestrator |
 | infrastructure | 1 | systemd Timers |
 
 ---
@@ -190,8 +199,9 @@ Patterns approaching promotion (based on uses):
 | Design-on-Paper Before Building | LOW | 4 | 1 more use → MEDIUM |
 | Mid-Session Checkpointing | ✅ HIGH | 5 | promoted to HIGH 2026-06-26 |
 | Idempotent Incremental Loading | LOW | 2 | 1 more use → MEDIUM candidate |
-| Two-Layer DWH (STG + DWH) | ✅ MEDIUM | 2 | promoted 2026-06-24 (build validation) |
-| Star Schema for Single-Source | LOW | 2 | 1 more use → MEDIUM candidate |
+| Two-Layer DWH (STG + DWH) | ✅ MEDIUM | 3 | uses 2→3 on full build; 2 more → HIGH |
+| Star Schema for Single-Source | ✅ MEDIUM | 3 | promoted 2026-06-26 (full 12-object build) |
+| Exasol Identifier & Type Constraints | ✅ MEDIUM | 3 | promoted 2026-06-26 (STG + DWH layers) |
 | Shopify Cost Data Location | MEDIUM | 2 | 1 more use → HIGH candidate |
 | Two-Layer Architecture (Generic + Custom) | LOW | 2 | 1 more use → MEDIUM candidate |
 | Markdown-to-Word Pipeline | LOW | 2 | 1 more use → MEDIUM candidate |

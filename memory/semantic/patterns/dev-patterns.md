@@ -64,10 +64,17 @@ Layer 2 (DYT-specific) successfully designed on top of Layer 1 (generic Shopify)
 
 ### Star Schema for Single-Source DWH
 
-**Confidence:** LOW
-**Uses:** 2
+**Confidence:** MEDIUM
+**Uses:** 3
 **Category:** data-modeling
-**Last Used:** 2026-06-24
+**Last Used:** 2026-06-26
+
+**2026-06-26 full-build (LOW→MEDIUM, uses 2→3):** Scaled the POC's 4-object star to the **full
+12-object** design — 7 dims + 5 facts — in pure-SQL transforms (`code/etl/ddl/05_transforms.sql`).
+The grammar that held at 4 objects held at 12: ROW_NUMBER surrogate keys, sentinel/Unknown members
+with fixed keys (-1 Unknown, 0 No-Discount) so fact FKs are never NULL, GID→numeric via
+`REGEXP_SUBSTR`, and `INSERT…SELECT` dims-first-then-facts. No new structural surprises at scale —
+the design generalised cleanly. Three uses, real builds → promote to MEDIUM.
 
 **2026-06-24 build validation:** First time this was actually *built and run*, not just
 designed. A minimal star (dim_date, dim_product, fact_order, fact_order_line_item) on Exasol
@@ -211,9 +218,14 @@ Starting any integration project with an external API.
 ### Mid-Session Checkpointing
 
 **Confidence:** HIGH
-**Uses:** 5
+**Uses:** 6
 **Category:** process
 **Last Used:** 2026-06-26
+
+**2026-06-26 reinforcement (use 6, the DWH+views+ops session):** Same rhythm, now across a
+multi-phase build: committed C / D / E as three clean commits, refreshed ACTIONS.md + MEMORY +
+both READMEs as each phase landed, then branched/merged at the end. The handoff stayed clean enough
+that the whole thing could be reconstructed from disk alone. Holds firmly at HIGH.
 
 **2026-06-26 promotion (MEDIUM→HIGH):** The Layer 1 STG build session committed after *every*
 batch (scaffold, DDL, each loader group) — 9 commits — and refreshed build-plan/notes/MEMORY as it
@@ -457,9 +469,17 @@ Extracting large datasets from Shopify (full product catalog, historical orders)
 ### systemd Timers for Production ETL
 
 **Confidence:** LOW
-**Uses:** 1
+**Uses:** 2
 **Category:** infrastructure
-**Last Used:** 2026-01-30
+**Last Used:** 2026-06-26
+
+**2026-06-26 authored-for-real (uses 1→2):** Moved from research note to actual unit files
+(`code/etl/deploy/shopify-dwh.{service,timer}`). Concrete choices worth keeping: `Type=oneshot` +
+enable the **timer** not the service; `OnCalendar` daily 02:30 with `Persistent=true` +
+`RandomizedDelaySec=300`; secrets via `EnvironmentFile` *outside the repo* (config.py reads
+`os.environ`, its `load_dotenv` no-ops when the in-repo `.env` is absent — so the same code runs
+dev and prod with zero change); plus sandbox hardening (`NoNewPrivileges`, `ProtectSystem=strict`,
+`PrivateTmp`). The timer cadence *is* the daily-inventory-snapshot cadence — one knob, not two.
 
 **When to use:**
 Scheduling Python ETL jobs on Linux servers in production.
@@ -559,9 +579,15 @@ API → STG (raw, mirrors source) → DWH (reporting-optimized = IS the reportin
 ### Pivot Transformation Pattern (Rows to Columns)
 
 **Confidence:** LOW
-**Uses:** 1
+**Uses:** 2
 **Category:** data-modeling
-**Last Used:** 2026-01-30
+**Last Used:** 2026-06-26
+
+**2026-06-26 build validation (uses 1→2):** Designed 2026-01-30, **built for real** in the Layer 1
+`fact_order` transform — payments (3), tax lines (2), discount applications (2) all pivoted with the
+exact `MAX(CASE WHEN rn = N THEN ... END)` + `ROW_NUMBER() OVER (PARTITION BY order_id ...)` shape
+below, plus the `COUNT(*) AS total_payment_count` overflow flag. Confirmed the "pick a realistic max
++ keep a count column" guidance is enough; the SQL is mechanical once `rn` is assigned.
 
 **When to use:**
 Transforming multi-value arrays from transactional systems into columnar format for reporting.
@@ -1322,8 +1348,16 @@ But the handling is essential for production-scale backfills.
 ### Reconcile by Aligning Window + Definition First
 
 **Confidence:** LOW
-**Uses:** 1
+**Uses:** 2
 **Category:** process
+**Last Used:** 2026-06-26
+
+**2026-06-26 productionised (uses 1→2):** The POC's reconciliation became a permanent artifact —
+`code/etl/ddl/08_reconcile.sql`, with the headline view `v_revenue_by_product_by_day` ported
+**verbatim** from the POC so the comparison stays like-for-like. The only change was removing the
+60-day window floor (production has `read_all_orders`). The method is now a re-runnable Gate-D step,
+not a one-off — the alignment discipline (pin window + confirm definition) is baked into the file's
+header so whoever runs it can't skip it.
 
 **When to use:**
 Validating a new pipeline's numbers against an existing trusted source (here: our Exasol
@@ -1390,9 +1424,17 @@ whole point of the POC.
 
 ### Exasol Identifier & Type Constraints
 
-**Confidence:** LOW
-**Uses:** 1
+**Confidence:** MEDIUM
+**Uses:** 3
 **Category:** exasol
+
+**2026-06-26 DWH-layer reinforcement (LOW→MEDIUM, uses 2→3):** Held across the whole DWH layer too.
+Two more reserved-word offenders surfaced and were documented for first-deploy rather than guessed:
+`address` (dim_location), `region` (dim_geography) — same "rename, never quote" rule. New Exasol
+functions exercised by the transforms (each a first-run-verify item since the POC didn't touch them):
+`NTILE(5)` for RFM quintiles, `WEEK`/`LAST_DAY` for dim_date, `HOURS_BETWEEN` for fulfillment timing.
+And the digit-cross-join row generator (no `generate_series`) extended from dim_date to dim_time.
+Three uses across STG + DWH → MEDIUM. See also [[In-Warehouse JSON Field Extraction]].
 
 **Confidence note:** uses 1→2 — applied across the full 18-table production STG DDL (2026-06-26),
 not just the POC's 4. The `TEXT → VARCHAR(2000000)` and `INT → INTEGER` mappings and unquoted-
@@ -1432,8 +1474,16 @@ underscore-prefixed and reserved-word columns before generating production DDL.
 ### Store Atomic Components, Derive Measures in the View Layer
 
 **Confidence:** LOW
-**Uses:** 1
+**Uses:** 2
 **Category:** data-modelling
+**Last Used:** 2026-06-26
+
+**2026-06-26 build validation (uses 1→2):** The principle from the revenue-definition decision was
+**built** in Phase D. The facts (`fact_order`, `fact_order_line_item`) store only atomic components
+(gross/discount/net/tax/refund); all 57 named measures live in `ddl/07_metric_views.sql` as view
+expressions. The headline "Revenue" is one default in `v_revenue_by_product_by_day`, flippable with
+no ETL re-run. Confirmed the payoff: the unresolved gross-vs-net question never blocked the build —
+it sat in the cheap, reversible view layer exactly as predicted.
 
 **When to use:**
 When a "headline" business measure has a contested or uncertain definition (revenue net-vs-gross,
@@ -1568,6 +1618,87 @@ decision — which fits the user's one-decision-at-a-time preference (`[[feedbac
 
 ---
 
+### In-Warehouse JSON Field Extraction (REGEXP, No JSON Functions)
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** exasol
+**Last Used:** 2026-06-26
+
+**When to use:**
+You stored a JSON blob in a column (an address, a settings bag) and need a couple of scalar fields
+out of it in pure SQL — on a database whose JSON-path support is absent, weak, or version-dependent
+(Exasol being the case here). Reaching for a JSON function or a UDF is the obvious move; often you
+don't need either.
+
+**Pattern:**
+Extract a value with two standard regex calls — grab the key+value, then strip the key prefix:
+```sql
+REGEXP_REPLACE(REGEXP_SUBSTR(j, '"city": "[^"]*'), '^"city": "', '')   -- -> the city value, or NULL
+```
+`REGEXP_SUBSTR` returns the matched `"city": "Cape Town` (NULL if the key is absent or the value is
+`null`/numeric — no opening quote to match); `REGEXP_REPLACE` removes the literal prefix. No
+lookbehind, no capture groups, no JSON engine — so it runs on any build.
+
+**What makes it *safe* (not a hack):**
+The decisive enabler is **you control the JSON shape** — your own loader wrote it with `json.dumps`,
+so the keys and the `": "` separator spacing are known exactly, not guessed. That turns "parsing
+arbitrary JSON with regex" (fragile, don't) into "reading a fixed serialisation you emitted" (fine).
+
+**Limits — document as first-run-verify:**
+- Assumes the serialiser's spacing (`json.dumps` default `": "`). A different writer → adjust the
+  literal.
+- A value containing an escaped `\"` truncates at the escape (rare for addresses; flag it).
+- Scalars only — not arrays/nested objects.
+
+**Proven (on paper):** Layer 1 `dim_geography`, `dim_customer.default_*`, and `fact_order`'s shipping
+denormalisation all parse `city/province/provinceCode/countryCodeV2/country/zip` this way, with a
+concatenated `address_hash` (lower(city|province|country|zip)) as the dedup + join key computed
+identically on both sides so the geography_key join matches. Flagged for first-run verification since
+it's the one thing untestable without the live instance. Generalises [[Exasol Identifier & Type Constraints]].
+
+---
+
+### Thin Subprocess Orchestrator Over Existing Entry Points
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** data-engineering
+**Last Used:** 2026-06-26
+
+**When to use:**
+You have a pile of already-working CLI entry points (per-table loaders, a DDL runner, a healthcheck)
+and need a *single* command a scheduler can call that runs them in dependency order with one
+observable result. The tempting move is to import them and call their `main()`s; resist it.
+
+**Pattern:**
+Make the orchestrator a thin conductor that runs each step as its **own `python -m` subprocess** —
+the same invocation you'd type by hand — and collects exit codes:
+```python
+proc = subprocess.run([sys.executable, "-m", f"shopify_dwh.loaders.{name}", mode], cwd=ETL_ROOT)
+```
+Then: **fail-fast** by default (downstream depends on upstream; `--continue-on-error` for debugging),
+per-step timing + logging, and a SUMMARY block with a non-zero overall exit so `systemctl`/journald
+reflect run health. Add selectors (`--stg-only`/`--dwh-only`) and pass-through args (`--mode`).
+
+**Why subprocess beats import-and-call:**
+- **Single source of truth** — each step's logic (incl. its own `sys.argv` mode handling) stays in
+  one place; the orchestrator doesn't re-implement or re-wire it.
+- **Isolation** — a step that crashes or calls `sys.exit()` can't take the orchestrator's state with
+  it; you get a clean exit code instead of a half-torn-down process.
+- **No import-time surprises** — entry points that read argv / env at import don't fight the parent.
+- Cost is negligible for a batch job (process spawn ≪ the I/O each step does).
+
+**Requirement that makes it clean:** every step must be **idempotent** (safe to re-run), so recovery
+is just "fix cause, re-run the whole pipeline." Here the DWH steps are CREATE…IF NOT EXISTS /
+TRUNCATE+INSERT / CREATE OR REPLACE, and the loaders are watermark+MERGE — so the orchestrator never
+needs partial-resume logic. ([[Idempotent Incremental Loading (Watermark + MERGE-on-id)]] is what buys this.)
+
+**Proven (on paper):** `code/etl/shopify_dwh/pipeline.py` — healthcheck → 16 STG loaders → DWH
+02–07, one entry point the systemd service calls. Syntax-validated; full run gated on infra.
+
+---
+
 ## Anti-Patterns
 
 ### Building on Deprecated APIs
@@ -1598,17 +1729,20 @@ decision — which fits the user's one-decision-at-a-time preference (`[[feedbac
 |---------|------------|------|----------|
 | Two-Layer Architecture (Generic + Custom) | LOW | 2 | architecture |
 | Architecture Selection (Warehouse vs Lakehouse) | LOW | 1 | architecture |
-| Two-Layer DWH Architecture (STG + DWH) | MEDIUM | 2 | data-modeling |
+| Two-Layer DWH Architecture (STG + DWH) | MEDIUM | 3 | data-modeling |
 | **Idempotent Incremental Loading (Watermark + MERGE)** | LOW | 2 | data-engineering |
 | **Verify Output Mapping Against Target Schema (no live deps)** | LOW | 1 | data-engineering |
+| **Thin Subprocess Orchestrator Over Existing Entry Points** | LOW | 1 | data-engineering |
 | **Snapshot Is the Productizable Superset** | LOW | 1 | data-modeling |
+| **Store Atomic Components, Derive Measures in View Layer** | LOW | 2 | data-modeling |
 | **Surface Capability/Permission Gaps as Decisions** | LOW | 1 | process |
 | **Cost-Based GraphQL Throttling (Leaky Bucket)** | LOW | 1 | shopify-api |
-| **Reconcile by Aligning Window + Definition First** | LOW | 1 | process |
+| **Reconcile by Aligning Window + Definition First** | LOW | 2 | process |
 | **Walking-Skeleton POC Before Full Build** | LOW | 1 | process |
-| **Exasol Identifier & Type Constraints** | LOW | 2 | exasol |
-| Star Schema for Single Source | LOW | 2 | data-modeling |
-| Pivot Transformation (Rows to Columns) | LOW | 1 | data-modeling |
+| **Exasol Identifier & Type Constraints** | MEDIUM | 3 | exasol |
+| **In-Warehouse JSON Field Extraction (REGEXP, no JSON funcs)** | LOW | 1 | exasol |
+| Star Schema for Single Source | MEDIUM | 3 | data-modeling |
+| Pivot Transformation (Rows to Columns) | LOW | 2 | data-modeling |
 | Variant-Level Grain | LOW | 1 | data-modeling |
 | **Metrics-Driven Schema Design** | LOW | 1 | data-modeling |
 | **Cross-System Join Strategy** | LOW | 1 | data-modeling |
@@ -1616,7 +1750,7 @@ decision — which fits the user's one-decision-at-a-time preference (`[[feedbac
 | **Data Investigation Before Schema Finalisation** | LOW | 1 | data-modeling |
 | Validate Schema Against API | LOW | 1 | process |
 | Check API Lifecycle First | LOW | 1 | process |
-| Mid-Session Checkpointing | HIGH | 5 | process |
+| Mid-Session Checkpointing | HIGH | 6 | process |
 | Follow Existing Conventions (Don't Duplicate) | LOW | 1 | process |
 | Markdown-to-Word Pipeline | LOW | 2 | process |
 | Design-on-Paper Before Building | LOW | 4 | process |
@@ -1631,7 +1765,7 @@ decision — which fits the user's one-decision-at-a-time preference (`[[feedbac
 | **Evaluate Existing Tools Before Building** | LOW | 1 | process |
 | **POPIA-Compliant Tiered Architecture** | LOW | 1 | architecture |
 | **Evidence-Based Feature Building** | LOW | 1 | process |
-| systemd Timers for Production ETL | LOW | 1 | infrastructure |
+| systemd Timers for Production ETL | LOW | 2 | infrastructure |
 | Exasol Star Schema Optimization | LOW | 1 | exasol |
 
 ---
@@ -1652,6 +1786,32 @@ When to promote from MEDIUM → HIGH:
 ---
 
 ## Pattern Review Log
+
+### 2026-06-26 (Layer 1 DWH + metric views + productionisation — Phases C/D/E)
+
+The code-able remainder of the build, in one session: the full DWH (12 objects + transforms +
+verify), the metric view layer (57 metrics), and ops (orchestrator + systemd + runbook). Three
+commits (C/D/E), fast-forward-merged to master. All still pre-Gate-A (no infra). Two new patterns:
+- **In-Warehouse JSON Field Extraction (REGEXP, no JSON functions)** — `REGEXP_SUBSTR` + `REGEXP_REPLACE`
+  to pull scalars from a JSON column without any JSON engine. Safe *because* our own loader wrote the
+  JSON (`json.dumps`), so keys + spacing are known, not guessed. Used for dim_geography + order geo.
+- **Thin Subprocess Orchestrator Over Existing Entry Points** — `pipeline.py` runs each step as its own
+  `python -m` subprocess (not import+call): single source of truth per step, process isolation,
+  fail-fast + summary. Clean because every step is already idempotent.
+
+Reinforcements & promotions:
+- **Star Schema for Single-Source DWH** LOW→**MEDIUM** (uses 2→3) — POC's 4-object star scaled to the
+  full 12 with no structural surprises; the surrogate-key/sentinel/GID-extraction grammar held.
+- **Exasol Identifier & Type Constraints** LOW→**MEDIUM** (uses 2→3) — DWH reserved words (`address`,
+  `region`) documented for first-deploy; new functions (`NTILE`/`WEEK`/`LAST_DAY`/`HOURS_BETWEEN`).
+- **Pivot Transformation (Rows to Columns)** (uses 1→2) — designed Jan, *built* now in fact_order.
+- **Store Atomic Components, Derive Measures in the View Layer** (uses 1→2) — the decision, built: 57
+  measures as views over atomic fact components; the gross-vs-net question stayed a non-blocker.
+- **Reconcile by Aligning Window + Definition First** (uses 1→2) — POC recon → permanent `08_reconcile.sql`.
+- **systemd Timers for Production ETL** (uses 1→2) — research note → real unit files (secrets via
+  EnvironmentFile so the same code runs dev + prod).
+- **Mid-Session Checkpointing** (HIGH, use 6) — C/D/E committed + docs refreshed per phase, clean merge.
+- Created episodic: 2026-06-26-layer1-dwh-build.md
 
 ### 2026-06-26 (Layer 1 STG build — scaffold + full DDL + 16 loaders)
 
