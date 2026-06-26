@@ -1,11 +1,46 @@
 # Notes
 
 **Project:** Shopify DWH Research
-**Last Updated:** 2026-06-24
+**Last Updated:** 2026-06-26
 
 ---
 
 ## Research Log
+
+### 2026-06-26 — Layer 1 production build started (Phase A + Phase B.1)
+
+POC signed off GO; began the real build. Approach: scaffold + port what the POC proved,
+keeping everything pre-Gate-A (no infra needed) so the code is ready the moment the three
+external prerequisites land. Three commits on `master`:
+
+- **Phase A scaffold (`bb93616`)** — new `code/etl/` package `shopify_dwh/`. Ported the three
+  shared POC modules (`shopify_client`, `exasol_loader`, `ddl_runner`) verbatim, plus `oauth_install`
+  and a `healthcheck` (the Gate A two-ended smoke test). The one genuinely new piece: `config.py`,
+  the single `os.environ` reader — everything else takes a `Settings` object. Production deltas vs
+  POC: central config, **configurable STG/DWH schema names** (productisation), **secure-by-default
+  Exasol** (encryption + cert validation on; POC bypassed both for its self-signed box). Verified all
+  8 modules import with no env (no import-time side effects) and config enforces required vars.
+  Caught + fixed one smell: `oauth_install` was doing config work at import time.
+- **4 POC loaders ported (`6041c52`)** — `loaders/{products,variants,orders,line_items}.py`. Mechanical
+  changes (package imports, schema-from-config, `from_settings`, `connect(settings)`). One real upgrade:
+  **orders now populates `customer_id`** (`customer{id}`), enabled by `read_customers` in the production
+  scope set — the POC had to NULL it. Line-items inner-pagination cap kept with its warning, flagged for
+  later hardening.
+- **Full STG DDL (`e8c6b6d`)** — `code/etl/ddl/01_stg_schema.sql` builds all **18** staging tables
+  (234 cols) from `schema-layered.md` v1.1; `verify_stg.sql` + `ddl/README.md` (conventions, type
+  mappings, reserved-word watch list). Validated by parsing the SQL: 18 `CREATE TABLE`, 234 columns.
+
+**Findings / things to reconcile:**
+- **STG is 18 tables, not "17"** — `stg_gift_cards` was added during DYT research after the "17" label
+  was set. MEMORY, build-plan intro, and `schema-layered.md` intro all still say 17. Cosmetic, worth a
+  cleanup pass.
+- **Reserved-word risk un-verifiable without the live instance:** `source` (shipping_lines), `committed`
+  + `reserved` (inventory_levels). If a CREATE fails on first deploy, **rename** (don't quote — quoting
+  breaks the loaders' uppercase name alignment). POC already proved `name`/`status`/`title`/etc. safe.
+
+**State:** Phase A code-complete (Gate A blocked on infra); Phase B = DDL written + 4/17 loaders.
+**Next:** the remaining 13 STG loaders (order-children, then customers/locations/discount_codes,
+inventory, abandoned_checkouts, gift_cards). Then Gate A (infra) → deploy → load → Phase C (DWH).
 
 ### 2026-06-24 — Layer 1 build prerequisites resolved (decision session)
 

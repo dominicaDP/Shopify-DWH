@@ -1,13 +1,13 @@
 # Projects Index
 
-**Last Updated:** 2026-06-24
+**Last Updated:** 2026-06-26
 
 ## Active Projects
 
 | Project | Type | Status | Priority | Health |
 |---------|------|--------|----------|--------|
+| research-notes | Work | 🔨 Building Layer 1 (Phase A done, B underway) | HIGH | Healthy |
 | shopify-poc | Experiment | ✅ Complete — verdict GO | HIGH | Healthy |
-| research-notes | Work | Next up (Layer 1 build) | HIGH | Healthy |
 | dyt-dwh | Work | On Hold (after Layer 1) | HIGH | Healthy |
 
 ## Project Health Legend
@@ -49,26 +49,28 @@
 ### research-notes (Shopify DWH Research)
 
 **Type:** Work
-**Status:** On Hold (resumes after POC outcome)
+**Status:** 🔨 Building Layer 1 (active) — POC signed off GO, production build started
 **Priority:** HIGH
 **Health:** Healthy
 
 **Quick Links:**
+- [Build plan](./research-notes/build-plan.md) ← live phase/gate tracker
 - [Context](./research-notes/context.md)
 - [Tasks](./research-notes/tasks.md)
 - [Patterns](./research-notes/patterns.md)
 - [Notes](./research-notes/notes.md)
+- [ETL code](../code/etl/README.md)
 
 **Current Focus:**
-- Research data modeling approaches (Star vs Data Vault)
-- Map Shopify Orders data model
-- Define generic DWH structure
+- Layer 1 production ETL build (Shopify → SHOPIFY_STG → SHOPIFY_DWH)
+- Phase A scaffold ✅ · Phase B: STG DDL written + 4/17 loaders ported
+- Next: remaining 13 STG loaders, then Gate A (infra) → deploy
 
 **Recent Activity:**
-- Exasol Xperts narrative + market-sizing and reporting-problems addendums drafted (2026-05-25)
-- Consolidated project context and vision (2026-01-29)
-- Defined two-layer architecture (generic + custom)
-- Established scope: Orders & Finance first
+- Layer 1 build started: scaffold + 4 loaders + full 18-table STG DDL (2026-06-26)
+- Layer 1 build prerequisites resolved — host, scopes, ETL host, secrets, revenue model (2026-06-24)
+- Exasol Xperts narrative + addendums drafted (2026-05-25)
+- Defined two-layer architecture; scope Orders & Finance first (2026-01-29)
 
 ---
 
