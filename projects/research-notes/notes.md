@@ -38,9 +38,15 @@ external prerequisites land. Three commits on `master`:
   + `reserved` (inventory_levels). If a CREATE fails on first deploy, **rename** (don't quote — quoting
   breaks the loaders' uppercase name alignment). POC already proved `name`/`status`/`title`/etc. safe.
 
-**State:** Phase A code-complete (Gate A blocked on infra); Phase B = DDL written + 4/17 loaders.
-**Next:** the remaining 13 STG loaders (order-children, then customers/locations/discount_codes,
-inventory, abandoned_checkouts, gift_cards). Then Gate A (infra) → deploy → load → Phase C (DWH).
+**State (end of session):** Phase A code-complete; **Phase B.2 complete** — 16/18 STG
+loaders built and column-verified (every loader's output keys == its DDL columns).
+8 order-children share `loaders/_orders_source.py`; inventory_levels built as a
+productisation-aware daily snapshot (feature-flagged, snapshot = superset of current-stock).
+2 loaders deferred by decision: discount_codes (read_discounts), gift_cards (read_gift_cards).
+**Decisions taken:** defer those 2; inventory = daily snapshot.
+**Next:** Phase C (DWH: 7 dims + 5 facts + pivots/aggregations + metric views) — code-able now
+against schema-layered.md, no infra needed. In parallel, the 3 infra prereqs gate Gate A →
+deploy DDL → load STG → Gate B → reconcile.
 
 ### 2026-06-24 — Layer 1 build prerequisites resolved (decision session)
 
