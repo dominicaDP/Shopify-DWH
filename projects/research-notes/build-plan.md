@@ -1,6 +1,9 @@
 # Layer 1 Production Build Plan
 
-**Status:** Not started — POC complete (GO), schema cleaned to v1.1.
+> **For the consolidated "what to do next" list, see [ACTIONS.md](ACTIONS.md).**
+> This file is the detailed phase/gate plan; ACTIONS.md is the outstanding-actions register.
+
+**Status:** In progress — Phase A + Phase B (STG) code-complete; deploy/run gated on infra (ACTIONS.md §A).
 **Approach:** Sequence-driven, gated. Mirrors the POC's phase/gate structure (which worked).
 Each phase has a clear "you know it worked because…" gate; pick up at the right step after any break.
 

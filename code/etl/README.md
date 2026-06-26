@@ -45,33 +45,56 @@ cp .env.example .env        # then fill in real values
 ## Run
 
 ```bash
-# Mint a Shopify token for the configured scopes (re-run after any scope change):
+# 1. Mint a Shopify token for the configured scopes (re-run after any scope change):
 python -m shopify_dwh.oauth_install
 
-# Gate A — confirm both ends are reachable:
+# 2. Gate A — confirm both ends are reachable (Exasol SELECT 1 + Shopify shop):
 python -m shopify_dwh.healthcheck
 
-# Module self-tests (need the hosts + Phase B schema for the loader one):
+# 3. Deploy + verify the staging schema:
+python -m shopify_dwh.ddl_runner ddl/01_stg_schema.sql
+python -m shopify_dwh.ddl_runner ddl/verify_stg.sql        # expect 18 tables, all empty
+
+# 4. Load staging. Full-load entities first (no dependency), then orders + children.
+python -m shopify_dwh.loaders.products
+python -m shopify_dwh.loaders.variants
+python -m shopify_dwh.loaders.customers
+python -m shopify_dwh.loaders.locations
+python -m shopify_dwh.loaders.orders            # establishes the updated_at watermark
+python -m shopify_dwh.loaders.line_items
+python -m shopify_dwh.loaders.transactions      # order-children (each re-reads orders)
+python -m shopify_dwh.loaders.tax_lines
+python -m shopify_dwh.loaders.discount_applications
+python -m shopify_dwh.loaders.shipping_lines
+python -m shopify_dwh.loaders.fulfillments
+python -m shopify_dwh.loaders.fulfillment_line_items
+python -m shopify_dwh.loaders.refunds
+python -m shopify_dwh.loaders.refund_line_items
+python -m shopify_dwh.loaders.inventory_levels  # daily snapshot
+python -m shopify_dwh.loaders.abandoned_checkouts
+
+# Incremental loaders accept a mode arg: [full | incremental] (default: auto).
+
+# Module self-tests:
 python -m shopify_dwh.shopify_client     # paginates a few products
 python -m shopify_dwh.exasol_loader      # round-trips dummy rows through stg_products
-
-# Deploy / verify SQL (Phase B onward):
-python -m shopify_dwh.ddl_runner ddl/01_stg_schema.sql
 ```
 
-## Status — Phase A (scaffold)
+## Status
 
-Done: package layout, the three shared modules ported, central config + secrets
-handling, OAuth helper, and the Gate A healthcheck.
+**Phase A (scaffold) + Phase B (STG: DDL + loaders) are code-complete.** See
+[`../../projects/research-notes/ACTIONS.md`](../../projects/research-notes/ACTIONS.md)
+for the full action register.
 
-**Gate A is not green yet** — it depends on three external prerequisites (decided,
-not yet executed; see build-plan.md):
+- **DDL:** all 18 staging tables in `ddl/01_stg_schema.sql` (see `ddl/README.md`).
+- **Loaders:** 16/18 built (`shopify_dwh/loaders/`). Deferred pending a scope
+  decision: `discount_codes` (read_discounts), `gift_cards` (read_gift_cards).
+- **Verified:** every loader's output columns match its DDL columns. Not yet run —
+  GraphQL field-shapes are unverified against the live API (see the first-run
+  checklist in ACTIONS.md §C).
 
-1. **Shopify scopes** — add `read_all_orders` + `read_customers` + `read_inventory`
-   in the app config (create version → release), then `oauth_install` for a fresh token.
-2. **ETL host** — the dedicated Linux VM on the Exasol network.
-3. **Exasol user + schemas** — the dedicated least-privilege ETL user owning
-   `SHOPIFY_STG` / `SHOPIFY_DWH`.
-
-Once those are in place, `python -m shopify_dwh.healthcheck` should print
-**Gate A: GREEN**, and Phase B (the 17 STG loaders) begins.
+**Gate A is not green yet** — it waits on three external prerequisites (decided, not
+executed; ACTIONS.md §A): Shopify scopes re-OAuth, the ETL Linux VM, and the Exasol
+ETL user + schemas. Once green, deploy the DDL and run the loaders above. Next code
+work (no infra needed): **Phase C — the DWH layer** (`ddl/02_dwh_schema.sql` +
+transforms).

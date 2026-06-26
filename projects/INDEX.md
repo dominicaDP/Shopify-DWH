@@ -54,6 +54,7 @@
 **Health:** Healthy
 
 **Quick Links:**
+- [Actions](./research-notes/ACTIONS.md) ← consolidated next-steps / action register
 - [Build plan](./research-notes/build-plan.md) ← live phase/gate tracker
 - [Context](./research-notes/context.md)
 - [Tasks](./research-notes/tasks.md)
