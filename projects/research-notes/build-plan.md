@@ -100,12 +100,28 @@ deploys/runs until Gate A.
 | Step | What | Status |
 |------|------|--------|
 | B.1 | Generate + deploy DDL for all STG tables from `schema-layered.md` | ◐ written, not deployed |
-| B.2 | Build loaders, reusing the POC pattern. Group by extraction shape: | ◐ 4/17 |
-|     | • simple full-load dims: ✅ products, ✅ variants · ⬜ customers, locations, discount_codes | |
-|     | • watermark-incremental + MERGE: ✅ orders, ✅ line_items · ⬜ transactions, tax_lines, discount_apps, shipping_lines, fulfillments, fulfillment_line_items, refunds, refund_line_items, inventory_levels, abandoned_checkouts, gift_cards | |
+| B.2 | Build loaders, reusing the POC pattern. Group by extraction shape: | ◐ 6/18 |
+|     | • simple full-load dims: ✅ products, ✅ variants, ✅ customers, ✅ locations · ⬜ discount_codes† | |
+|     | • watermark-incremental + MERGE: ✅ orders, ✅ line_items · ⬜ transactions, tax_lines, discount_apps, shipping_lines, fulfillments, fulfillment_line_items, refunds, refund_line_items, inventory_levels, abandoned_checkouts‡, gift_cards† | |
 | B.3 | Idempotency test on every incremental loader (re-run → 0 dups) | ⬜ |
 
-**Gate B:** all 17 STG tables populated; re-runs produce 0 duplicates; row counts sane vs Admin.
+**Gate B:** all 18 STG tables populated; re-runs produce 0 duplicates; row counts sane vs Admin.
+
+> **† SCOPE GAP — DECISION NEEDED (2026-06-26).** Two STG tables need Shopify scopes
+> **not** in the decided set (`read_orders, read_products, read_all_orders,
+> read_customers, read_inventory`):
+> - `stg_discount_codes` (`codeDiscountNodes` query) needs **`read_discounts`**.
+> - `stg_gift_cards` (`giftCards` query) needs **`read_gift_cards`** — and it's a
+>   Layer-2 / DYT-voucher-motivated table, not core generic Layer 1.
+>
+> Options: (a) add both scopes for full design fidelity; (b) add `read_discounts`
+> only (discount catalogue is genuinely generic; gift_cards is Layer-2); (c) defer
+> both — discount *amounts* already flow via `Order.discountApplications`
+> (read_orders), so the discount *catalogue* dim is enrichment, not a metric blocker.
+> Loaders for these two are deferred until this is decided.
+>
+> **‡** `stg_abandoned_checkouts` (`abandonedCheckouts` query) — scope to confirm at
+> first run (likely read_orders; possibly needs read_checkouts). Built but flagged.
 
 ## Phase C — Full DWH layer (7 dims + 5 facts)
 
