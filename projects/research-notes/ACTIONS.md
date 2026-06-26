@@ -6,9 +6,10 @@
 from the plan, the scope decisions, and the verify-at-first-run notes scattered
 through the loader docstrings.
 
-**One-line status:** Phase A (scaffold) + Phase B (STG: DDL + 16/18 loaders) are
-**code-complete and committed**. Nothing has been deployed or run — that waits on
-the infra prerequisites in §A. Phase C (DWH) is code-able now without infra.
+**One-line status:** Phase A (scaffold) + Phase B (STG: DDL + 16/18 loaders) +
+**Phase C (DWH: all 12 objects + transforms + verify)** are **code-complete**.
+Nothing has been deployed or run — that waits on the infra prerequisites in §A.
+Phase D (metric views + Fivetran reconcile) is the next code-able step.
 
 ---
 
@@ -73,16 +74,29 @@ field-shape miss is to drop/NULL it (POC precedent), and for a reserved word to
 - [ ] **Row-count spot-check vs Shopify Admin** for a few tables (deferred in the POC).
 - [ ] **Idempotency (B.3)** — re-run each incremental loader, expect 0 duplicate keys.
 
+**DWH layer (Phase C, when transforms first run — see `code/etl/ddl/README.md`):**
+- [ ] **DWH DDL deploy** — reserved-word watch: `address` (dim_location), `region`
+      (dim_geography). If a CREATE fails, rename.
+- [ ] **Address JSON parsing** — confirm `dim_geography` has real city/country rows
+      and `fact_order.shipping_city` is populated (regexp parse of the json.dumps
+      address; assumes `": "` spacing).
+- [ ] **Exasol functions** — `HOURS_BETWEEN` (fulfillment timing), `WEEK`/`LAST_DAY`
+      (dim_date), `NTILE` (RFM) weren't exercised by the POC; swap name/signature if any errors.
+- [ ] **Gate C reconcile** — `06_verify_dwh.sql`: fact_order = stg_orders exactly,
+      sentinels all present, NULL-FK checks all 0.
+
 ---
 
 ## D. Remaining code work — mostly no infra needed
 
-- [ ] **Phase C — DWH layer** (code-able now): `ddl/02_dwh_schema.sql` (7 dims +
-      5 facts) + transforms + `verify_dwh.sql`. Reuse POC patterns (GID extraction,
-      ROW_NUMBER keys, Unknown members, digit-cross-join dim_date). NEW work: the
-      payment/tax/discount **pivots** → fact_order, the LTV/RFM **aggregations** →
-      dim_customer. Implement revenue as **atomic components** in the fact, named
-      measures in the **view layer** (decided).
+- [x] **Phase C — DWH layer** ✅ *code-complete 2026-06-26.* `ddl/02_dwh_schema.sql`
+      (7 dims + 5 facts), `03_dim_date.sql` + `04_dim_time.sql` (generated),
+      `05_transforms.sql` (dims→facts), `06_verify_dwh.sql`. Reused POC patterns
+      (GID extraction, ROW_NUMBER keys, Unknown members, digit-cross-join dim_date);
+      NEW: payment/tax/discount **pivots** → fact_order, LTV/RFM **aggregations** →
+      dim_customer, address-JSON parse → dim_geography. Revenue stored as **atomic
+      components** in the facts; named measures deferred to the Phase D view layer
+      (decided). First-run checks folded into §C above. Not yet deployed (needs Gate A).
 - [ ] **Phase D — metric layer**: the 57 metric views (metrics-lineage-reference.md)
       + reconcile a sample vs Fivetran (reuse the POC window/definition-alignment method).
 - [ ] **Phase E — productionisation**: scheduling (systemd timers), error handling +

@@ -16,10 +16,26 @@ python -m shopify_dwh.ddl_runner ddl/verify_stg.sql      # confirm 18 tables, al
 |------|-------|------|
 | `01_stg_schema.sql` | B.1 | `SHOPIFY_STG` schema + all **18** staging tables |
 | `verify_stg.sql` | B.1 | existence/empty check + table/column-count tripwire |
-| *(02_dwh_schema.sql, transforms, verify_dwh — Phase C, not yet written)* | C | |
+| `02_dwh_schema.sql` | C | `SHOPIFY_DWH` schema + all **12** objects (7 dims + 5 facts) |
+| `03_dim_date.sql` | C | generate `dim_date` (4018 days, 2020–2030) |
+| `04_dim_time.sql` | C | generate `dim_time` (24 rows, one per hour) |
+| `05_transforms.sql` | C | STG → DWH transforms (dims first, then facts) |
+| `06_verify_dwh.sql` | C | Gate C: row counts, reconciliation, FK/sentinel checks |
 
-Deploy order: `01_stg_schema.sql` → load STG (the loaders) → Phase C DWH DDL →
-transforms → verify. The DWH files port from `code/poc/ddl/02_dwh_schema.sql` etc.
+Deploy order (run each with the DDL runner, from `code/etl/`):
+
+```bash
+python -m shopify_dwh.ddl_runner ddl/02_dwh_schema.sql   # build SHOPIFY_DWH (Phase C)
+python -m shopify_dwh.ddl_runner ddl/03_dim_date.sql     # generate dim_date
+python -m shopify_dwh.ddl_runner ddl/04_dim_time.sql     # generate dim_time
+python -m shopify_dwh.ddl_runner ddl/05_transforms.sql   # STG -> DWH (dims then facts)
+python -m shopify_dwh.ddl_runner ddl/06_verify_dwh.sql   # Gate C verification
+```
+
+Full pipeline: `01_stg_schema.sql` → load STG (the loaders) → `02`→`06` above.
+The DWH files port the POC's `code/poc/ddl/02_dwh_schema.sql` / `03_dim_date.sql` /
+`04_transforms.sql` patterns (ROW_NUMBER keys, sentinel members, GID extraction,
+digit cross-join dim_date) and widen them to the full design (`schema-layered.md`).
 
 ## Conventions (why the SQL looks the way it does)
 
@@ -75,10 +91,42 @@ Names already proven safe by the POC (so *not* a risk): `name`, `status`, `title
 `barcode`. The DWH-layer offenders (`year`, `month`, `day`, `object`, `rows`) do
 **not** appear in any STG table.
 
+**DWH-layer reserved-word watch** (Phase C, same rule — rename, never quote, if a
+CREATE fails): `address` (dim_location), `region` (dim_geography). The POC already
+proved `year`/`month`/`day` need avoiding, so dim_date uses `cal_year` / `cal_month`
+/ `day_of_month` and dim_time has no offenders.
+
 ## Expected after a clean deploy
 
 - `verify_stg.sql` row 1: **18** tables, each `row_count = 0` (before loaders run).
 - `verify_stg.sql` row 2: `table_count = 18`, `column_count = 234`.
+- `06_verify_dwh.sql`: dim_date = 4018, dim_time = 24; every sentinel count = 1;
+  fact_order reconciles exactly to stg_orders (rows + total); fact_order_line_item
+  rows ≤ stg lines (orphan drift dropped); all NULL-FK checks = 0. The `*_unknown_*`
+  columns are informational, not failures (e.g. `order_unknown_customer` is the full
+  count until `read_customers` + the customers loader land).
+
+## Phase C (DWH) — first-run verification
+
+The transforms reuse POC-validated SQL, but two things couldn't be tested without
+the live instance — check them on the first real run:
+
+- **Address JSON parsing** (dim_geography, dim_customer.default_*, fact_order geo).
+  Addresses are stored as the JSON our loaders wrote with `json.dumps` (keys: `city`,
+  `province`, `provinceCode`, `countryCodeV2`, `country`, `zip`). The transforms pull
+  a value with `REGEXP_SUBSTR(json, '"key": "[^"]*')` then strip the `"key": "` prefix
+  with `REGEXP_REPLACE` — no JSON functions, no lookbehind, so it runs on any Exasol
+  build. Confirm `dim_geography` has real city/country rows and `fact_order.shipping_city`
+  is populated on a sample. The pattern assumes `json.dumps`' `": "` spacing; a value
+  containing an escaped quote would truncate (rare for addresses).
+- **`HOURS_BETWEEN` / `WEEK` / `LAST_DAY` / `NTILE`** — standard Exasol functions used
+  by fact_fulfillment timing, dim_date, and dim_customer RFM. The POC didn't exercise
+  them; if any errors, it's a function-name/signature swap, not a logic change.
+
+Sentinel/Unknown members are inserted with fixed keys (`-1` Unknown, `0` No-Discount)
+that `ROW_NUMBER()` (which starts at 1) never collides with, so fact FKs are never NULL.
+`dim_discount` lands only its `0` sentinel until `read_discounts` is granted and the
+deferred `stg_discount_codes` loader runs — the table and transform are already wired.
 
 ### A note on "17 vs 18"
 
