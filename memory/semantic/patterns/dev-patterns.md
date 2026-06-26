@@ -1,6 +1,6 @@
 # Development Patterns
 
-**Last Updated:** 2026-06-24
+**Last Updated:** 2026-06-26
 
 ---
 
@@ -210,10 +210,17 @@ Starting any integration project with an external API.
 
 ### Mid-Session Checkpointing
 
-**Confidence:** MEDIUM
-**Uses:** 4
+**Confidence:** HIGH
+**Uses:** 5
 **Category:** process
-**Last Used:** 2026-06-24
+**Last Used:** 2026-06-26
+
+**2026-06-26 promotion (MEDIUM→HIGH):** The Layer 1 STG build session committed after *every*
+batch (scaffold, DDL, each loader group) — 9 commits — and refreshed build-plan/notes/MEMORY as it
+went, then did an explicit "document everything" consolidation pass (ACTIONS.md) before pausing.
+When the user asked "should we start fresh for more context?", the honest answer was "either works,
+the handoff is clean" — *because* context lived on disk, not in the conversation. That's the payoff
+of the pattern made concrete. 5th use across research + implementation; promoting to HIGH.
 
 **2026-06-24 promotion (LOW→MEDIUM):** Used relentlessly through the longest session yet — after
 every phase, updated tasks/notes/plan/findings/memory and committed. When the session detoured into
@@ -1239,9 +1246,17 @@ The architecture can be designed speculatively (cheap). The implementation shoul
 ### Idempotent Incremental Loading (Watermark + MERGE-on-id)
 
 **Confidence:** LOW
-**Uses:** 1
+**Uses:** 2
 **Category:** data-engineering
-**Last Used:** 2026-06-24
+**Last Used:** 2026-06-26
+
+**2026-06-26 reinforcement (uses 1→2):** The POC's watermark+MERGE pattern generalised cleanly
+into the production build's shared `loaders/_orders_source.py`, reused across 8 order-child
+loaders — including with **composite merge keys** (e.g. `(order_id, line_number)` for index-keyed
+tax/discount lines, `(fulfillment_id, line_item_id)` for parent-child lines) and a **snapshot
+variant** (inventory_levels merges on `(item, location, snapshot_date)`). The same idempotency
+property held across all shapes. One documented edge: index-keyed children can orphan-on-shrink in
+incremental mode — benign here because those collections are fixed at order creation.
 
 **When to use:**
 Loading data from a source that changes over time, where re-running a load must never
@@ -1379,6 +1394,13 @@ whole point of the POC.
 **Uses:** 1
 **Category:** exasol
 
+**Confidence note:** uses 1→2 — applied across the full 18-table production STG DDL (2026-06-26),
+not just the POC's 4. The `TEXT → VARCHAR(2000000)` and `INT → INTEGER` mappings and unquoted-
+identifier rule held for all 234 columns; a **reserved-word watch list** (`source`, `committed`,
+`reserved`) was documented for first-deploy rather than guessed, since it can't be verified without
+the instance. Reinforced the "rename, don't quote" rule: quoting forces case-sensitivity, which
+would break the loaders' uppercase column alignment.
+
 **When to use:**
 Writing Exasol DDL/SQL, especially when generating it from a design doc authored without Exasol
 in mind (e.g. `schema-layered.md`).
@@ -1441,6 +1463,111 @@ sure whether current reporting leads with gross or net. See `research-notes/buil
 
 ---
 
+### Verify Output Mapping Against the Target Schema Without Live Dependencies
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** data-engineering
+**Last Used:** 2026-06-26
+
+**When to use:**
+Writing code that maps source records into a fixed target schema (ETL loaders → DB tables,
+serializers → API contracts) when you **can't run it end-to-end yet** (no live API, no DB,
+gated on infra). The highest-frequency real bug in this code is silent column-name drift
+between the mapper and the target — and it normally only surfaces at first run.
+
+**Pattern:**
+Close the loop statically. Parse the **target schema** (the DDL, the proto, the JSON schema)
+to get its exact field set, build a **synthetic source record** covering every nested shape,
+run it through the mapper, and assert `set(mapper_output.keys()) == set(schema_fields)` —
+no missing, no extras. An "extra" key is one the load would silently **drop**; a "missing"
+one is a column that never populates.
+
+**Proven:** across all 16 Layer 1 STG loaders, this caught mapping correctness before any
+infra existed — every loader verified `extract_rows` keys == its `CREATE TABLE` columns
+(e.g. 16/16, 13/13). It also caught a real gotcha in the verifier itself: a `[a-z_]+` column
+regex silently skipped `option1`/`address1` (digits), proving the meta-point — verify your
+verifier's numbers too (parsed counts beat hand counts).
+
+**What it does and doesn't cover:**
+- ✅ Column/field-name alignment, presence, drops — the cheap, high-frequency error.
+- ❌ NOT semantic correctness of values or the upstream field *names* (GraphQL shapes etc.).
+  Those still need the live source — document them separately as a first-run checklist.
+
+**Key insight:** "can't run it" is not "can't test it." Separate the part you can verify
+statically (does my output fit the contract?) from the part you genuinely can't (does the live
+source return what I assumed?), and close the first loop now.
+
+---
+
+### Snapshot Is the Productizable Superset of "Current State"
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** data-modeling
+**Last Used:** 2026-06-26
+
+**When to use:**
+Modelling a source whose data has a "right now" value (stock levels, prices, statuses,
+balances) and you're tempted to choose between storing **current state** vs **history** —
+especially in a productizable / multi-tenant build where different customers want different things.
+
+**Pattern:**
+Don't fork the code. Build the **snapshot** (one row per entity per snapshot_date, idempotent
+MERGE on the date-bearing key). Then "current vs history" becomes a **deployment** choice, not a
+code path:
+- run **daily** → history accumulates (trend/sell-through analysis)
+- run **once** / **retention = 1** → effectively current-state only (`query MAX(snapshot_date)`)
+
+Gate the whole module behind a **feature flag** (default off) and govern depth with a **retention**
+config. Current-state is just a query over the latest snapshot — a strict subset.
+
+**Why it pays off for a product:**
+- One artifact serves every customer preference via config (cadence + retention + flag), instead of
+  two code paths to maintain and a per-tenant decision baked into the build.
+- "Which do you want?" stops being a build-blocking question — ship the superset, let scheduling
+  and config decide.
+
+**Proven:** the Layer 1 `inventory_levels` loader — built as a daily snapshot (MERGE on
+item+location+snapshot_date) behind `features.include_inventory_levels`, with current-stock falling
+out as the latest-date query. Reframed a "snapshot vs current?" decision into a non-fork.
+
+**Key insight:** when a productizable design forces an either/or, check whether one side is a
+*superset* of the other reachable by config. If so, build the superset and push the choice into
+the (cheap, reversible) deployment layer. Generalises the "store atomic components, derive in the
+view layer" idea from measures to *grain over time*.
+
+---
+
+### Surface Capability / Permission Gaps as Decisions (Don't Silently Assume)
+
+**Confidence:** LOW
+**Uses:** 1
+**Category:** process
+**Last Used:** 2026-06-26
+
+**When to use:**
+Building from a design doc that assumes access to external resources (API scopes, permissions,
+credentials, paid tiers) — where the design was written before the access was actually provisioned.
+
+**Pattern:**
+Before mass-producing the artifacts, **map each one to the specific capability it requires** and
+check that capability is in the *decided* set. For any gap: stop, name it as a one-at-a-time
+decision with the trade-off, and **don't** either (a) silently assume the access will exist or
+(b) build code that can't run. Let the owner decide scope; defer the affected artifacts cleanly.
+
+**Proven:** the Layer 1 STG design assumed 18 tables, but `stg_discount_codes` needs
+`read_discounts` and `stg_gift_cards` needs `read_gift_cards` — neither in the decided scope set
+(`read_orders/products/all_orders/customers/inventory`). Surfaced as one plain-language decision;
+the user deferred both. The remaining 16 loaders proceeded unblocked. Building those two loaders
+speculatively would have produced unrunnable code against undecided permissions.
+
+**Key insight:** a design doc is a *claim* about required capabilities, not a guarantee they're
+granted. Reconcile the claim against reality early, and convert each gap into an explicit, scoped
+decision — which fits the user's one-decision-at-a-time preference (`[[feedback_decision-pacing]]`).
+
+---
+
 ## Anti-Patterns
 
 ### Building on Deprecated APIs
@@ -1472,11 +1599,14 @@ sure whether current reporting leads with gross or net. See `research-notes/buil
 | Two-Layer Architecture (Generic + Custom) | LOW | 2 | architecture |
 | Architecture Selection (Warehouse vs Lakehouse) | LOW | 1 | architecture |
 | Two-Layer DWH Architecture (STG + DWH) | MEDIUM | 2 | data-modeling |
-| **Idempotent Incremental Loading (Watermark + MERGE)** | LOW | 1 | data-engineering |
+| **Idempotent Incremental Loading (Watermark + MERGE)** | LOW | 2 | data-engineering |
+| **Verify Output Mapping Against Target Schema (no live deps)** | LOW | 1 | data-engineering |
+| **Snapshot Is the Productizable Superset** | LOW | 1 | data-modeling |
+| **Surface Capability/Permission Gaps as Decisions** | LOW | 1 | process |
 | **Cost-Based GraphQL Throttling (Leaky Bucket)** | LOW | 1 | shopify-api |
 | **Reconcile by Aligning Window + Definition First** | LOW | 1 | process |
 | **Walking-Skeleton POC Before Full Build** | LOW | 1 | process |
-| **Exasol Identifier & Type Constraints** | LOW | 1 | exasol |
+| **Exasol Identifier & Type Constraints** | LOW | 2 | exasol |
 | Star Schema for Single Source | LOW | 2 | data-modeling |
 | Pivot Transformation (Rows to Columns) | LOW | 1 | data-modeling |
 | Variant-Level Grain | LOW | 1 | data-modeling |
@@ -1486,7 +1616,7 @@ sure whether current reporting leads with gross or net. See `research-notes/buil
 | **Data Investigation Before Schema Finalisation** | LOW | 1 | data-modeling |
 | Validate Schema Against API | LOW | 1 | process |
 | Check API Lifecycle First | LOW | 1 | process |
-| Mid-Session Checkpointing | MEDIUM | 4 | process |
+| Mid-Session Checkpointing | HIGH | 5 | process |
 | Follow Existing Conventions (Don't Duplicate) | LOW | 1 | process |
 | Markdown-to-Word Pipeline | LOW | 2 | process |
 | Design-on-Paper Before Building | LOW | 4 | process |
@@ -1522,6 +1652,31 @@ When to promote from MEDIUM → HIGH:
 ---
 
 ## Pattern Review Log
+
+### 2026-06-26 (Layer 1 STG build — scaffold + full DDL + 16 loaders)
+
+The production build began: `code/etl/` package, the full 18-table STG DDL, and 16/18 STG loaders,
+all pre-Gate-A (no infra), in one long session (9 commits). Three new patterns:
+- **Verify Output Mapping Against the Target Schema Without Live Dependencies** — parse the DDL,
+  feed a synthetic record through the mapper, assert keys == columns. Caught correctness across all
+  16 loaders before any infra existed. "Can't run it" ≠ "can't test it."
+- **Snapshot Is the Productizable Superset of "Current State"** — build the snapshot, make
+  current-vs-history a scheduling/retention/feature-flag choice, not a code fork. From the inventory
+  design decision; generalises "store atomic components" from measures to grain-over-time.
+- **Surface Capability/Permission Gaps as Decisions** — map each design artifact to the scope it
+  needs, surface gaps (read_discounts/read_gift_cards) as one-at-a-time decisions; deferred 2 loaders.
+
+Reinforcements & promotions:
+- **Mid-Session Checkpointing** MEDIUM→**HIGH** (uses 4→5) — 9 commits + running doc refresh + an
+  explicit "document everything" pass made the session's handoff clean enough that starting fresh
+  was optional, not necessary. The pattern's payoff made concrete.
+- **Idempotent Incremental Loading (Watermark + MERGE)** (uses 1→2) — generalised into the shared
+  `_orders_source.py`, reused across 8 order-children incl. composite keys + a snapshot variant.
+- **Exasol Identifier & Type Constraints** (uses 1→2) — applied across all 234 columns; reserved-word
+  watch list documented (rename, don't quote) rather than guessed.
+- Production-hardening when porting POC code: central `config.py` as the single `os.environ` reader,
+  secure-by-default connection, configurable schema names (noted in episodic, not a standalone pattern).
+- Created episodic: 2026-06-26-layer1-stg-build.md
 
 ### 2026-06-24 (Shopify POC — first implementation: build, run, reconcile)
 
