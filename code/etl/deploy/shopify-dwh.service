@@ -1,0 +1,40 @@
+# systemd service — one ETL run. Triggered by shopify-dwh.timer (not enabled directly).
+# Install: see deploy/README.md. Adjust the three paths + User to the host.
+[Unit]
+Description=Shopify -> Exasol Layer 1 ETL (one run)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+
+# Dedicated least-privilege ETL user (owns SHOPIFY_STG/SHOPIFY_DWH, NOT SYS).
+User=shopify_etl
+Group=shopify_etl
+
+# Repo checkout + its venv on the ETL host.
+WorkingDirectory=/opt/shopify-dwh/code/etl
+
+# Secrets live OUTSIDE the repo, owned by the ETL user, perms 600. systemd injects
+# them as env vars; config.py reads os.environ (its load_dotenv no-ops when the
+# in-repo code/etl/.env is absent), so no secret ever touches the working tree.
+EnvironmentFile=/etc/shopify-dwh/etl.env
+
+# --check runs the Gate-A healthcheck first, so a bad token / unreachable Exasol
+# fails fast before any extraction work.
+ExecStart=/opt/shopify-dwh/code/etl/venv/bin/python -m shopify_dwh.pipeline --check
+
+# A hung extraction shouldn't run forever; tune to the real full-run duration.
+TimeoutStartSec=3600
+
+# Be a good citizen on a shared box.
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+
+# Hardening (the ETL needs only outbound network + its venv; no privilege).
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/shopify-dwh/code/etl

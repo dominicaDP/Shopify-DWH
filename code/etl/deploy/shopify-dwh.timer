@@ -1,0 +1,18 @@
+# systemd timer — runs shopify-dwh.service daily. Enable this (not the service):
+#   systemctl enable --now shopify-dwh.timer
+[Unit]
+Description=Run the Shopify -> Exasol ETL daily
+
+[Timer]
+# 02:30 local time daily. inventory_levels writes a daily snapshot, so the run
+# cadence IS the inventory snapshot cadence — keep it to once a day.
+OnCalendar=*-*-* 02:30:00
+
+# Catch up on the next boot if the host was down at the scheduled time.
+Persistent=true
+
+# Small jitter so we don't hammer the Shopify API at the same wall-clock instant.
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

@@ -6,11 +6,12 @@
 from the plan, the scope decisions, and the verify-at-first-run notes scattered
 through the loader docstrings.
 
-**One-line status:** Phase A (scaffold) + Phase B (STG: DDL + 16/18 loaders) +
-**Phase C (DWH: 12 objects + transforms + verify)** + **Phase D (metric view layer +
-reconcile queries)** are **code-complete**. Nothing has been deployed or run — that
-waits on the infra prerequisites in §A. Phase E (productionisation) + the runtime
-Fivetran reconcile are what's left.
+**One-line status:** Phases **A–E are all code-complete** — scaffold, STG (DDL +
+16/18 loaders), DWH (12 objects + transforms + verify), metric views (57 metrics) +
+reconcile queries, and ops (orchestrator + systemd units + distribution keys +
+runbook). **Nothing has been deployed or run** — everything downstream waits on the
+3 infra prerequisites in §A. What's left is execution, not code: infra → Gate A →
+deploy → load → Gate B/C → runtime Fivetran reconcile (Gate D) → enable the timer.
 
 ---
 
@@ -105,8 +106,13 @@ field-shape miss is to drop/NULL it (POC precedent), and for a reserved word to
       reconcile queries (POC method, 60-day floor removed). **Runtime reconcile vs Fivetran
       still pending** (needs the live pipeline — a Gate-D activity, not code). Documented gaps:
       metrics 28/3.9 (product return rate), 29 (sell-through), 36/37 (landing/referring — API-removed).
-- [ ] **Phase E — productionisation**: scheduling (systemd timers), error handling +
-      logging + run monitoring, distribution keys where warranted, runbook.
+- [x] **Phase E — productionisation** ✅ *code-complete 2026-06-26.*
+      `shopify_dwh/pipeline.py` — one orchestrator (healthcheck → 16 STG loaders →
+      DWH 02–07) with fail-fast, per-step timing/logging, a run summary, and
+      `--mode`/`--stg-only`/`--dwh-only` flags. `deploy/` — systemd timer + service
+      (daily 02:30, least-priv user, secrets via EnvironmentFile, hardened).
+      `ddl/09_distribution_keys.sql` — opt-in `DISTRIBUTE BY order_id` (not warranted
+      at current volume; reversible). `RUNBOOK.md` — operate/recover/backfill/monitor.
 - [ ] **(deferred)** discount_codes + gift_cards loaders — only if §B reverses.
 
 ---
