@@ -1,0 +1,12 @@
+# Secrets — never commit
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local data dumps
+data/
+*.jsonl

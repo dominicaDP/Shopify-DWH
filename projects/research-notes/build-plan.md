@@ -63,13 +63,25 @@ Source of truth for the schema: `schema-layered.md` (v1.1, Exasol-safe).
 
 ## Phase A — Production project scaffold
 
-| Step | What | Gate |
-|------|------|------|
-| A.1 | Create a production code layout (e.g. `code/etl/`) separate from `code/poc/` | structure exists |
-| A.2 | Port `shopify_client.py`, `exasol_loader.py`, `deploy_ddl.py` as shared modules | importable, self-tests pass |
-| A.3 | Config: connection + run settings out of code (env / config file), real secrets management | no secrets in source |
+**Status (2026-06-26):** code-complete. `code/etl/` package built and verified
+(all 8 modules import clean, config self-test passes). **Gate A still pending** —
+it needs the three external prerequisites executed (Shopify scopes re-OAuth, ETL
+VM, Exasol ETL user/schemas), then `python -m shopify_dwh.healthcheck` → GREEN.
 
-**Gate A:** shared modules run against the target Exasol; `SELECT 1` + Shopify hello both green.
+| Step | What | Gate | Done |
+|------|------|------|------|
+| A.1 | Production code layout `code/etl/` (package `shopify_dwh/`) separate from `code/poc/` | structure exists | ✅ |
+| A.2 | Port `shopify_client.py`, `exasol_loader.py`, `deploy_ddl.py`→`ddl_runner.py` as shared modules | importable, self-tests pass | ✅ |
+| A.3 | Central `config.py` — all connection/run settings from env, the only `os.environ` reader; secure-by-default Exasol (encryption + cert validation); configurable schema names | no secrets in source | ✅ |
+
+Also added beyond the original A-scope: `oauth_install.py` (re-OAuth for the new
+scopes) and `healthcheck.py` (the Gate A two-ended smoke test: `SELECT 1` + Shopify
+shop). What changed from POC code: central config, configurable STG/DWH schema
+names (productisation), secure-by-default TLS. Extraction/load logic ported verbatim.
+
+**Gate A:** shared modules run against the target Exasol; `SELECT 1` + Shopify hello
+both green → `python -m shopify_dwh.healthcheck` prints **Gate A: GREEN**.
+*(Blocked on the three Prerequisites above being executed, not on code.)*
 
 ## Phase B — Full STG layer (17 tables)
 
